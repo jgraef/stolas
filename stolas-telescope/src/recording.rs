@@ -62,7 +62,7 @@ struct Writer {
 
 impl Writer {
     pub fn open(path: PathBuf, config: Config) -> Result<Self, Error> {
-        let writer = begin_file(&path, &config, 0)?;
+        let writer = begin_file(&path, &config)?;
 
         Ok(Self { writer })
     }
@@ -73,7 +73,7 @@ impl Writer {
     }
 }
 
-fn begin_file(path: &Path, config: &Config, serial: usize) -> Result<BufWriter<File>, Error> {
+fn begin_file(path: &Path, config: &Config) -> Result<BufWriter<File>, Error> {
     let timestamp = Utc::now();
 
     std::fs::create_dir_all(path)?;
@@ -83,7 +83,6 @@ fn begin_file(path: &Path, config: &Config, serial: usize) -> Result<BufWriter<F
 
     let header = FileHeader {
         timestamp,
-        serial,
         config: config.clone(),
     };
     let header_json = serde_json::to_string(&header)?;

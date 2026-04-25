@@ -49,7 +49,6 @@ pub async fn handle_network(
         let mut framed = Framed::new(stream, codec);
 
         // send packet with current state to client
-        // todo: actually send state (json)
         let mut send_buffer = BytesMut::new();
         send_buffer.put_u16_ne(TAG_CONFIG);
         serde_json::to_writer((&mut send_buffer).writer(), &config)?;

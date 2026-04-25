@@ -24,7 +24,6 @@ use serde::{
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileHeader {
     pub timestamp: DateTime<Utc>,
-    pub serial: usize,
     pub config: Config,
 }
 
