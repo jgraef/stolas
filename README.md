@@ -8,11 +8,11 @@ This is our first attempt at measuring the emissions of neutral hydrogen at 21cm
 
 The antenna is an open waveguide, often called a "cantenna" or "stove pipe antenna". It's made from an old piece of stove pipe. Dimensions can be calculated [here][1]. Astropeiler Stockert also has a [fantastic analysis][2] of simple DIY antennas for hydrogen observation. We drilled a small hole for a SMA connector that has the probe (1mm copper wire) soldered to the center pin. But we recommend using a bigger socket that can be screwed in, because we weren't able to solder to the stove pipe. For now the SMA connector is held in place by friction, but electrical connection to the stove pipe was checked.
 
-The antenna is then connected to a [Nooelec LaNA][3] to amplify the signal and a [1420 MHz bandpass filter][4] to avoid unwanted signals. We would have used the [Nooelec SAWbird+ H1][5] instead, but it was unavailable at the time. We tried verifying the setup with a cheap [NanoVNA clone][6], but we're unable to get it to work at 1420 MHz. The seller states it works up to 1.5 GHz, but it might not go that high (which is fine for such a cheap clone); or we haven't calibrated it correctly. In the future we would also like to build our own bandpass filter, so that we can tune it easily.
+The antenna is then connected to a [Nooelec LaNA][3] to amplify the signal and a [1420 MHz bandpass filter][4] to avoid unwanted signals. We would have used the [Nooelec SAWbird+ H1][5] instead, but it was unavailable at the time. We tried verifying the setup with a cheap [NanoVNA clone][6], but were unable to get it to work at 1420 MHz. The seller states it works up to 1.5 GHz, but it might not go that high (which is fine for such a cheap clone); or we haven't calibrated it correctly. In the future we would also like to build our own bandpass filter, so that we can tune it easily.
 
 Finally the signal goes into a [RTLSDR Blog v4][6]. It's a really good SDR for that price-range and can be used for a variety of projects. This SDR works well upto a sampling rate of 2.4 MHz, so we can sample a spectrum of ±1.2 MHz around the center frequency of 1420 MHz. It can go higher, but might drop some samples - which might be fine, but needs testing.
 
-The RTL-SDR is connected to a [Raspberry Pi 4][8] that runs software to capture and preprocess the signal. The Raspberry Pi 4 seems to be ideal, because it has WiFi, so we don't have to run an Ethernet cable to access the data, and it can handle the prepocessing easily.
+The RTL-SDR is connected to a [Raspberry Pi 4][8] that runs software to capture and preprocess the signal. The Raspberry Pi 4 seems to be ideal, because it has WiFi, so we don't have to run an Ethernet cable to access the data, and it can handle the preprocessing easily.
 
 ## Software
 
@@ -41,6 +41,11 @@ TODO
 ## Results
 
 TODO
+
+# Improvements & Lessons learned
+
+- Use SMA or N connector that can be screwed in.
+- Don't use a black stove-pipe. It'll heat up quickly, degrading the signal.
 
 [1]: https://3g-aerial.biz/en/online-calculations/antenna-calculations/cantenna-online-calculator
 [2]: https://www.astropeiler.de/en/beobachtungen-der-21-cm-linie-mit-einfachen-mitteln/
