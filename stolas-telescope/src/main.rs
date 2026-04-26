@@ -1,7 +1,7 @@
 pub mod network;
 pub mod recording;
 pub mod sample;
-pub mod time;
+pub mod sensors;
 
 use std::path::PathBuf;
 
@@ -26,7 +26,7 @@ use crate::{
     network::handle_network,
     recording::handle_recording,
     sample::handle_sampling,
-    time::wait_for_time_sync,
+    sensors::time::wait_for_time_sync,
 };
 
 #[tokio::main]

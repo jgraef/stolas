@@ -11,6 +11,16 @@ use color_eyre::eyre::{
 };
 use tokio::process::Command;
 
+/// Waits until time is synchronized.
+///
+/// Currently this only waits for time to be synchronized with NTP.
+///
+/// # TODO
+///
+/// - If a RTC is present, check if we want to wait for a more precise time or
+///   not.
+/// - If GPS is available, check if we want to wait for GPS time
+///   synchronization.
 pub async fn wait_for_time_sync() -> Result<(), Error> {
     tracing::info!("Waiting for time-synchronization");
 
@@ -34,6 +44,10 @@ pub async fn wait_for_time_sync() -> Result<(), Error> {
     }
 }
 
+/// Queries status from timedatectl.
+///
+/// This can be used to determine if time is synchronized with NTP, if there is
+/// a real-time clock present, etc.
 pub async fn timedatectl_status() -> Result<TimeDateCtlStatus, Error> {
     let output = Command::new("timedatectl")
         .args(["--no-ask-password", "show"])
