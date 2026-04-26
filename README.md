@@ -51,9 +51,9 @@ TODO
 # TODO
 
 - Sensors:
- - [Compass][12] and [Accelerometer][13] to measure elevation and azimuth. Might need extra wires to have the sensors aligned with the antenna.
- - [Real-time clock][11] to keep time when NTP is not available.
- - [`embedded-hal`][10] for using I2C or SPI in Rust.
+  - [Compass][12] and [Accelerometer][13] to measure elevation and azimuth. Might need extra wires to have the sensors aligned with the antenna.
+  - [Real-time clock][11] to keep time when NTP is not available.
+  - [`embedded-hal`][10] for using I2C or SPI in Rust.
 
 [1]: https://3g-aerial.biz/en/online-calculations/antenna-calculations/cantenna-online-calculator
 [2]: https://www.astropeiler.de/en/beobachtungen-der-21-cm-linie-mit-einfachen-mitteln/
