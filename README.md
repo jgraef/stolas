@@ -30,9 +30,22 @@ The preprocessed signal is then stored on the Raspberry Pi's SD card, and can be
 
 TODO: Web interface
 
+## User Interface
+
+### TODO
+
+- Configure parameters and meta-data (that is put into the recording file)
+- Start/Stop measurement
+- Show status: measurement, system time, system temperature, location, pointing, beam coverage
+- Tool to get location/pointing config via mobile phone (accelerometer/compass)
+
 ## Calibration
 
-TODO
+### TODO
+
+- Take measurement without antenna connected.
+- Take measurement of cold sky
+- Take measurement of sun (for estimation of beam width)
 
 ## Post-processing
 
@@ -54,6 +67,8 @@ TODO
   - [Compass][12] and [Accelerometer][13] to measure elevation and azimuth. Might need extra wires to have the sensors aligned with the antenna.
   - [Real-time clock][11] to keep time when NTP is not available.
   - [`embedded-hal`][10] for using I2C or SPI in Rust.
+- Measure system temperature.
+- Use FITS for storing measurements. [Recommendations][14], [fitsrs][15]
 
 [1]: https://3g-aerial.biz/en/online-calculations/antenna-calculations/cantenna-online-calculator
 [2]: https://www.astropeiler.de/en/beobachtungen-der-21-cm-linie-mit-einfachen-mitteln/
@@ -68,3 +83,5 @@ TODO
 [11]: https://www.amazon.de/-/en/gp/product/B0CZDFTJV5
 [12]: https://www.amazon.de/-/en/gp/product/B0CH585MKV
 [13]: https://www.amazon.de/-/en/gp/product/B0CW4NNWZP?smid=A11EG882P3SP30
+[14]: https://heasarc.gsfc.nasa.gov/docs/heasarc/ofwg/ofwg_recomm.html
+[15]: https://docs.rs/fitrs/latest/fitrs/index.html
