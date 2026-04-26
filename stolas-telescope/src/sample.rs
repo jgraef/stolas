@@ -92,7 +92,7 @@ struct Fft {
     #[debug(skip)]
     fft: Arc<dyn rustfft::Fft<f32>>,
     scratch: Vec<Complex<f32>>,
-    normalize: f32,
+    window_size: usize,
 }
 
 impl Fft {
@@ -104,14 +104,14 @@ impl Fft {
         Self {
             fft,
             scratch,
-            normalize: 1.0 / (window_size as f32),
+            window_size,
         }
     }
 
     pub fn process(&mut self, buffer: &mut [Complex<f32>]) {
         self.fft.process_with_scratch(buffer, &mut self.scratch);
         for x in buffer {
-            *x *= self.normalize;
+            *x /= self.window_size as f32;
         }
     }
 }
@@ -143,16 +143,11 @@ impl Average {
 
         assert!(self.count <= self.size);
         if self.count == self.size {
-            let output: Arc<[f32]> = self
-                .sum
-                .iter()
-                .map(|sum| *sum / (self.size as f32))
-                .collect();
+            // finish average by dividing sum by average size
+            let output: Arc<[f32]> = self.sum.iter().map(|sum| *sum / self.size as f32).collect();
 
-            for s in &mut self.sum {
-                *s = 0.0;
-            }
-
+            // reset accumulator
+            self.sum.fill(0.0);
             self.count = 0;
 
             Some(output)
