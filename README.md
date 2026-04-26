@@ -68,7 +68,8 @@ TODO
   - [Real-time clock][11] to keep time when NTP is not available.
   - [`embedded-hal`][10] for using I2C or SPI in Rust.
 - Measure system temperature.
-- Use FITS for storing measurements. [Recommendations][14], [fitsrs][15]
+- Use FITS for storing measurements. [Recommendations][14], [Standard][15]
+- For coordinate transformations [`astro_math`][16] looks good.
 
 [1]: https://3g-aerial.biz/en/online-calculations/antenna-calculations/cantenna-online-calculator
 [2]: https://www.astropeiler.de/en/beobachtungen-der-21-cm-linie-mit-einfachen-mitteln/
@@ -84,4 +85,5 @@ TODO
 [12]: https://www.amazon.de/-/en/gp/product/B0CH585MKV
 [13]: https://www.amazon.de/-/en/gp/product/B0CW4NNWZP?smid=A11EG882P3SP30
 [14]: https://heasarc.gsfc.nasa.gov/docs/heasarc/ofwg/ofwg_recomm.html
-[15]: https://docs.rs/fitrs/latest/fitrs/index.html
+[15]: https://fits.gsfc.nasa.gov/standard40/fits_standard40aa-le.pdf
+[16]: https://docs.rs/astro-math/latest/astro_math/
