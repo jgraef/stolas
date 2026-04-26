@@ -46,6 +46,14 @@ TODO
 
 - Use SMA or N connector that can be screwed in.
 - Don't use a black stove-pipe. It'll heat up quickly in the sun, degrading the signal.
+- The Raspberry Pi 4 doesn't have a real-time clock. We must wait for NTP to synchronize the time before starting a measurement. A RTC module such as the [DS3231 AT24C32][11] might be a good idea.
+
+# TODO
+
+- Sensors:
+ - [Compass][12] and [Accelerometer][13] to measure elevation and azimuth. Might need extra wires to have the sensors aligned with the antenna.
+ - [Real-time clock][11] to keep time when NTP is not available.
+ - [`embedded-hal`][10] for using I2C or SPI in Rust.
 
 [1]: https://3g-aerial.biz/en/online-calculations/antenna-calculations/cantenna-online-calculator
 [2]: https://www.astropeiler.de/en/beobachtungen-der-21-cm-linie-mit-einfachen-mitteln/
@@ -55,4 +63,8 @@ TODO
 [6]: https://www.rtl-sdr.com/V4/
 [7]: https://www.youtube.com/live/vHxzKCaay0w?si=ypYq407gME_b95hm&t=1983
 [8]: https://www.raspberrypi.com/products/raspberry-pi-4-model-b/
-[9]: https://www.amazon.de/-/en/dp/B0B93FNW27?ref=ppx_yo2ov_dt_b_fed_asin_title&th=1
+[9]: https://www.amazon.de/-/en/dp/B0B93FNW27
+[10]: https://docs.rs/embedded-hal-async/latest/embedded_hal_async/i2c/index.html
+[11]: https://www.amazon.de/-/en/gp/product/B0CZDFTJV5
+[12]: https://www.amazon.de/-/en/gp/product/B0CH585MKV
+[13]: https://www.amazon.de/-/en/gp/product/B0CW4NNWZP?smid=A11EG882P3SP30

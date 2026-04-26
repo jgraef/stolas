@@ -1,6 +1,7 @@
 pub mod network;
 pub mod recording;
 pub mod sample;
+pub mod time;
 
 use std::path::PathBuf;
 
@@ -25,6 +26,7 @@ use crate::{
     network::handle_network,
     recording::handle_recording,
     sample::handle_sampling,
+    time::wait_for_time_sync,
 };
 
 #[tokio::main]
@@ -43,6 +45,15 @@ async fn main() -> Result<(), Error> {
         .ok_or_else(|| eyre!("Could not determine state directory"))?;
     let reader = BufReader::new(File::open(state_dir.join("config.json"))?);
     let config: Config = serde_json::from_reader(reader)?;*/
+
+    // wait for clock to be synchronized via NTP
+    tokio::select! {
+        _ = signal::ctrl_c() => {
+            tracing::info!("Received Ctrl-C. Quitting.");
+            return Ok(());
+        }
+        result = wait_for_time_sync() => result?,
+    }
 
     tracing::debug!("Connecting to RTL-SDR");
     let sdr = RtlSdr::open(0)?;
