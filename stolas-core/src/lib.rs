@@ -1,9 +1,8 @@
-use std::{
-    io::{
-        Read,
-        Write,
-    },
-    sync::Arc,
+pub mod file;
+
+use std::io::{
+    Read,
+    Write,
 };
 
 use byteorder::{
@@ -20,12 +19,6 @@ use serde::{
     Deserialize,
     Serialize,
 };
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FileHeader {
-    pub timestamp: DateTime<Utc>,
-    pub config: Config,
-}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Args)]
 pub struct Config {
@@ -52,7 +45,7 @@ pub struct Config {
 pub struct Frame {
     pub serial: u64,
     pub timestamp: DateTime<Utc>,
-    pub bins: Arc<[f32]>,
+    pub bins: Box<[f32]>,
 }
 
 impl Frame {
@@ -80,7 +73,7 @@ impl Frame {
         let num_bins = reader.read_u32::<BigEndian>()?;
         let bins = (0..num_bins)
             .map(|_i| reader.read_f32::<BigEndian>())
-            .collect::<Result<Arc<[f32]>, _>>()?;
+            .collect::<Result<Box<[f32]>, _>>()?;
 
         Ok(Self {
             serial,

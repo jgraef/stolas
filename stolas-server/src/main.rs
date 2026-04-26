@@ -23,8 +23,8 @@ use color_eyre::eyre::{
     bail,
 };
 use stolas_core::{
-    FileHeader,
     Frame,
+    file::FileHeader,
 };
 
 #[tokio::main]

@@ -132,7 +132,7 @@ impl Average {
         }
     }
 
-    pub fn push(&mut self, values: &[f32]) -> Option<Arc<[f32]>> {
+    pub fn push(&mut self, values: &[f32]) -> Option<Box<[f32]>> {
         assert_eq!(values.len(), self.sum.len());
 
         for (s, x) in self.sum.iter_mut().zip(values.iter()) {
@@ -144,7 +144,7 @@ impl Average {
         assert!(self.count <= self.size);
         if self.count == self.size {
             // finish average by dividing sum by average size
-            let output: Arc<[f32]> = self.sum.iter().map(|sum| *sum / self.size as f32).collect();
+            let output: Box<[f32]> = self.sum.iter().map(|sum| *sum / self.size as f32).collect();
 
             // reset accumulator
             self.sum.fill(0.0);

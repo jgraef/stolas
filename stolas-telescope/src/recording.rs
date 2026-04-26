@@ -1,25 +1,14 @@
-use std::{
-    fs::File,
-    io::{
-        BufWriter,
-        Write,
-    },
-    path::{
-        Path,
-        PathBuf,
-    },
-};
+use std::path::PathBuf;
 
-use byteorder::{
-    BigEndian,
-    WriteBytesExt,
-};
 use chrono::Utc;
 use color_eyre::eyre::Error;
 use stolas_core::{
     Config,
-    FileHeader,
     Frame,
+    file::{
+        FileHeader,
+        FileWriter,
+    },
 };
 use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
@@ -30,7 +19,13 @@ pub async fn handle_recording(
     mut signal_receiver: broadcast::Receiver<Frame>,
     shutdown: CancellationToken,
 ) -> Result<(), Error> {
-    let mut writer = Writer::open(path, config)?;
+    let mut writer = FileWriter::open(
+        path,
+        &FileHeader {
+            timestamp: Utc::now(),
+            config,
+        },
+    )?;
 
     loop {
         tokio::select! {
@@ -41,7 +36,7 @@ pub async fn handle_recording(
             frame = signal_receiver.recv() => {
                 match frame {
                     Ok(frame) => {
-                        writer.push_frame(&frame)?;
+                        writer.write_frame(&frame)?;
                     }
                     Err(broadcast::error::RecvError::Closed) => break,
                     Err(broadcast::error::RecvError::Lagged(lag)) => {
@@ -54,42 +49,4 @@ pub async fn handle_recording(
 
     tracing::info!("Signal channel closed. Closing recording.");
     Ok(())
-}
-
-struct Writer {
-    writer: BufWriter<File>,
-}
-
-impl Writer {
-    pub fn open(path: PathBuf, config: Config) -> Result<Self, Error> {
-        let writer = begin_file(&path, &config)?;
-
-        Ok(Self { writer })
-    }
-
-    pub fn push_frame(&mut self, frame: &Frame) -> Result<(), Error> {
-        frame.write(&mut self.writer)?;
-        Ok(())
-    }
-}
-
-fn begin_file(path: &Path, config: &Config) -> Result<BufWriter<File>, Error> {
-    let timestamp = Utc::now();
-
-    std::fs::create_dir_all(path)?;
-
-    let file_path = path.join(format!("{}.rec", timestamp.to_rfc3339()));
-    let mut writer = BufWriter::new(File::create_new(&file_path)?);
-
-    let header = FileHeader {
-        timestamp,
-        config: config.clone(),
-    };
-    let header_json = serde_json::to_string(&header)?;
-
-    writer.write_all(b"STOLAS\x00\x01")?;
-    writer.write_u32::<BigEndian>(header_json.len().try_into().unwrap())?;
-    writer.write_all(header_json.as_bytes())?;
-
-    Ok(writer)
 }
