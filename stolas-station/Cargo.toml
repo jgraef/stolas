@@ -23,7 +23,7 @@ rtlsdr-async = { version = "0.1.0", git = "https://github.com/jgraef/rtlsdr-asyn
 rustfft = "6.4.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-stolas-core = { path = "../stolas-core" }
+stolas-core.workspace = true
 systemstat = "0.2.6"
 tokio = { version = "1.52.1", features = [
     "rt-multi-thread",
@@ -34,6 +34,6 @@ tokio = { version = "1.52.1", features = [
 ] }
 tokio-stream = "0.1.18"
 tokio-util = { version = "0.7.18", features = ["codec"] }
-tower-http = { version = "0.6.8", features = ["fs", "normalize-path"] }
+tower-http = { version = "0.6.8", features = ["fs", "normalize-path", "trace"] }
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"

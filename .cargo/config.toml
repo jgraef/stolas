@@ -1,3 +1,6 @@
 [alias]
-xtest = "run --package stolas-xtask --"
-deploy = "xtest deploy"
+xtask = "run --package stolas-xtask --"
+deploy = "xtask deploy"
+
+[target.wasm32-unknown-unknown]
+rustflags = ['--cfg', 'getrandom_backend="wasm_js"']

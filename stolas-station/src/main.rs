@@ -1,46 +1,18 @@
 pub mod api;
-pub mod network;
-pub mod recording;
-pub mod sample;
 pub mod sensors;
+pub mod serve;
+pub mod station;
+pub mod util;
 
 use std::path::PathBuf;
 
-use axum::{
-    Router,
-    response::{
-        IntoResponse,
-        Redirect,
-    },
-    routing,
-};
 use clap::Parser;
 use color_eyre::eyre::Error;
-use futures_util::{
-    future::{
-        self,
-        Either,
-    },
-    pin_mut,
-};
-use rtlsdr_async::RtlSdr;
-use stolas_core::Config as SamplingConfig;
-use tokio::{
-    net::TcpListener,
-    signal,
-    sync::broadcast,
-};
-use tokio_util::sync::CancellationToken;
-use tower_http::{
-    normalize_path::NormalizePathLayer,
-    services::ServeDir,
-};
+use tokio::net::TcpListener;
 
 use crate::{
-    network::handle_network,
-    recording::handle_recording,
-    sample::handle_sampling,
-    sensors::time::wait_for_time_sync,
+    station::Station,
+    util::shutdown::cancel_on_ctrl_c_or_sigterm,
 };
 
 #[tokio::main]
@@ -58,31 +30,17 @@ async fn main() -> Result<(), Error> {
         .ok_or_else(|| eyre!("Could not determine state directory"))?;
     let recordings_path = data_path.join("recordings");*/
 
-    // todo
-    let webui_path = "tmp/webui";
-    tracing::debug!(?webui_path);
+    // create the station sub-systems.
+    let station = Station::new();
 
-    let router = Router::new()
-        // redirect / to /ui
-        .route(
-            "/",
-            routing::any(async move || Redirect::temporary("/ui").into_response()),
-        )
-        // serve /ui from static files
-        .nest_service(
-            "/ui",
-            ServeDir::new(webui_path).append_index_html_on_directories(true),
-        )
-        // serve /api/v1 with API
-        .nest("/api/v1", api::router())
-        // normalize paths
-        .layer(NormalizePathLayer::trim_trailing_slash());
+    // link Ctrl-C and SIGTERM to the shutdown CancellationToken
+    cancel_on_ctrl_c_or_sigterm(station.shutdown());
 
     tracing::info!("Listening at http://{}", args.listen_address);
+    let router = serve::router(&station).await?;
     let listener = TcpListener::bind(&args.listen_address).await?;
-    let shutdown = CancellationToken::new();
     axum::serve(listener, router)
-        .with_graceful_shutdown(async move { shutdown.cancelled().await })
+        .with_graceful_shutdown(async move { station.shutdown().cancelled().await })
         .await?;
 
     //old_main(args, recordings_path).await?;
@@ -99,6 +57,7 @@ struct Args {
     data_path: Option<PathBuf>,
 }
 
+/*
 #[allow(dead_code)]
 async fn old_main(
     config: SamplingConfig,
@@ -177,3 +136,4 @@ async fn old_main(
 
     Ok(())
 }
+ */

@@ -1,3 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["stolas-core", "stolas-tools", "stolas-station", "stolas-xtask", "stolas-webui"]
+members = [
+    "stolas-core",
+    "stolas-tools",
+    "stolas-station",
+    "stolas-xtask",
+    "stolas-webui",
+    "stolas-client",
+]
+
+[workspace.dependencies]
+stolas-client = { version = "0.1.0", path = "stolas-client" }
+stolas-core = { version = "0.1.0", path = "stolas-core" }

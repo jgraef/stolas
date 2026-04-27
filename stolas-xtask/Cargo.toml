@@ -4,14 +4,18 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+chrono = { version = "0.4.44", features = ["serde"] }
 clap = { version = "4.6.1", features = ["derive", "env"] }
 color-eyre = "0.6.5"
 dotenvy = "0.15.7"
+notify = { version = "8.2.0", default-features = false, features = ["macos_fsevent"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
 shell-escape = "0.1.5"
-tokio = { version = "1.52.1", features = [
-    "rt-multi-thread",
-    "macros",
-    "process",
-] }
+tera = "1.20.1"
+thiserror = "2.0.18"
+tokio = { version = "1.52.1", features = ["rt-multi-thread", "macros", "process", "time"] }
+tokio-util = "0.7.18"
 tracing = "0.1.44"
 tracing-subscriber = "0.3.23"
+walkdir = "2.5.0"
