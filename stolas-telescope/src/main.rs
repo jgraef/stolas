@@ -6,7 +6,11 @@ pub mod sensors;
 use std::path::PathBuf;
 
 use clap::Parser;
-use color_eyre::eyre::Error;
+use color_eyre::eyre::{
+    Error,
+    eyre,
+};
+use directories::ProjectDirs;
 use futures_util::{
     future::{
         self,
@@ -37,14 +41,17 @@ async fn main() -> Result<(), Error> {
 
     let args = Args::parse();
 
-    /*tracing::debug!("Loading config");
-    let project_dirs = ProjectDirs::from("org", "stolas", "telescope")
+    let project_dirs = ProjectDirs::from("org", "stolas", "station")
         .ok_or_else(|| eyre!("Could not determine project directories"))?;
-    let state_dir = project_dirs
+
+    let data_path = project_dirs
         .state_dir()
         .ok_or_else(|| eyre!("Could not determine state directory"))?;
-    let reader = BufReader::new(File::open(state_dir.join("config.json"))?);
-    let config: Config = serde_json::from_reader(reader)?;*/
+    let recordings_path = data_path.join("recordings");
+
+    //tracing::debug!("Loading config");
+    //let reader = BufReader::new(File::open(state_dir.join("config.json"))?);
+    //let config: Config = serde_json::from_reader(reader)?;
 
     // wait for clock to be synchronized via NTP
     tokio::select! {
@@ -72,7 +79,7 @@ async fn main() -> Result<(), Error> {
     });
 
     let recorder_task = tokio::spawn({
-        let path = args.path.clone();
+        let path = recordings_path.clone();
         let config = args.config.clone();
         let signal_receiver = signal_receiver.resubscribe();
         let shutdown = shutdown.clone();
@@ -121,11 +128,11 @@ async fn main() -> Result<(), Error> {
 
 #[derive(Debug, Parser)]
 pub struct Args {
-    #[clap(short, long)]
+    #[clap(short, long, env = "STATION_ADDRESS", default_value = "localhost:8080")]
     listen_address: Option<String>,
 
-    #[clap(short, long)]
-    path: PathBuf,
+    #[clap(short, long, env = "STATION_DATA")]
+    data_path: Option<PathBuf>,
 
     #[clap(flatten)]
     config: Config,
