@@ -15,6 +15,7 @@ pub async fn deploy(host: &str, path: &str, run: bool) -> Result<(), Error> {
             "--cvs-exclude",
             "--exclude-from",
             ".gitignore",
+            "--include=/target/stolas-webui/dist",
             ".",
             &destination,
         ])

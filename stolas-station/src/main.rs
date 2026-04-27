@@ -1,36 +1,16 @@
-pub mod network;
-pub mod recording;
-pub mod sample;
+pub mod api;
 pub mod sensors;
+pub mod station;
+pub mod util;
 
 use std::path::PathBuf;
 
 use clap::Parser;
-use color_eyre::eyre::{
-    Error,
-    eyre,
-};
-use directories::ProjectDirs;
-use futures_util::{
-    future::{
-        self,
-        Either,
-    },
-    pin_mut,
-};
-use rtlsdr_async::RtlSdr;
-use stolas_core::Config;
-use tokio::{
-    signal,
-    sync::broadcast,
-};
-use tokio_util::sync::CancellationToken;
+use color_eyre::eyre::Error;
 
 use crate::{
-    network::handle_network,
-    recording::handle_recording,
-    sample::handle_sampling,
-    sensors::time::wait_for_time_sync,
+    station::Station,
+    util::shutdown::cancel_on_ctrl_c_or_sigterm,
 };
 
 #[tokio::main]
@@ -39,20 +19,49 @@ async fn main() -> Result<(), Error> {
     color_eyre::install()?;
     tracing_subscriber::fmt::init();
 
-    let args = Args::parse();
+    let _args = Args::parse();
 
-    let project_dirs = ProjectDirs::from("org", "stolas", "station")
+    /*let project_dirs = ProjectDirs::from("org", "stolas", "station")
         .ok_or_else(|| eyre!("Could not determine project directories"))?;
-
     let data_path = project_dirs
         .state_dir()
         .ok_or_else(|| eyre!("Could not determine state directory"))?;
-    let recordings_path = data_path.join("recordings");
+    let recordings_path = data_path.join("recordings");*/
 
-    //tracing::debug!("Loading config");
-    //let reader = BufReader::new(File::open(state_dir.join("config.json"))?);
-    //let config: Config = serde_json::from_reader(reader)?;
+    // create the station sub-systems.
+    let station = Station::new();
 
+    // link Ctrl-C and SIGTERM to the shutdown CancellationToken
+    cancel_on_ctrl_c_or_sigterm(station.shutdown());
+
+    /*tracing::info!("Listening at http://{}", args.listen_address);
+    let router = serve::router(&station).await?;
+    let listener = TcpListener::bind(&args.listen_address).await?;
+    axum::serve(listener, router)
+        .with_graceful_shutdown(async move { station.shutdown().cancelled().await })
+        .await?;*/
+
+    //old_main(args, recordings_path).await?;
+
+    Ok(())
+}
+
+#[derive(Debug, Parser)]
+struct Args {
+    #[clap(short, long, env = "STATION_ADDRESS", default_value = "localhost:8080")]
+    listen_address: String,
+
+    #[clap(short, long, env = "STATION_DATA")]
+    data_path: Option<PathBuf>,
+}
+
+/*
+#[allow(dead_code)]
+async fn old_main(
+    config: SamplingConfig,
+    listen_address: Option<String>,
+    recordings_path: PathBuf,
+) -> Result<(), Error> {
     // wait for clock to be synchronized via NTP
     tokio::select! {
         _ = signal::ctrl_c() => {
@@ -69,7 +78,7 @@ async fn main() -> Result<(), Error> {
     let (signal_sender, signal_receiver) = broadcast::channel(1024);
 
     let sampling_task = tokio::spawn({
-        let config = args.config.clone();
+        let config = config.clone();
         let shutdown = shutdown.clone();
         async move {
             if let Err(error) = handle_sampling(sdr, config, signal_sender, shutdown).await {
@@ -80,7 +89,7 @@ async fn main() -> Result<(), Error> {
 
     let recorder_task = tokio::spawn({
         let path = recordings_path.clone();
-        let config = args.config.clone();
+        let config = config.clone();
         let signal_receiver = signal_receiver.resubscribe();
         let shutdown = shutdown.clone();
         async move {
@@ -90,10 +99,10 @@ async fn main() -> Result<(), Error> {
         }
     });
 
-    let network_task = if let Some(listen_address) = &args.listen_address {
+    let network_task = if let Some(listen_address) = &listen_address {
         let listen_address = listen_address.clone();
         let shutdown = shutdown.clone();
-        let config = args.config.clone();
+        let config = config.clone();
         Either::Left(tokio::spawn(async move {
             if let Err(error) =
                 handle_network(listen_address, config, signal_receiver, shutdown).await
@@ -125,15 +134,4 @@ async fn main() -> Result<(), Error> {
 
     Ok(())
 }
-
-#[derive(Debug, Parser)]
-pub struct Args {
-    #[clap(short, long, env = "STATION_ADDRESS", default_value = "localhost:8080")]
-    listen_address: Option<String>,
-
-    #[clap(short, long, env = "STATION_DATA")]
-    data_path: Option<PathBuf>,
-
-    #[clap(flatten)]
-    config: Config,
-}
+ */

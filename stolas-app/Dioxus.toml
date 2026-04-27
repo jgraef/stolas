@@ -1,0 +1,8 @@
+[web.app]
+title = "Stolas App"
+
+[web.watcher]
+reload_html = true
+watch_path = ["src", "assets"]
+# this seems to cause the server to respond with a 200 OK
+index_on_404 = false

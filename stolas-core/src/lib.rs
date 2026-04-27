@@ -1,3 +1,4 @@
+pub mod api;
 pub mod file;
 
 use std::io::{
@@ -20,6 +21,10 @@ use serde::{
     Serialize,
 };
 
+/// # TODO
+///
+/// Rename to distinguish it from other configurations. Name it such that it's
+/// clear that this is the configuration for sampling and preprocessing.
 #[derive(Clone, Debug, Serialize, Deserialize, Args)]
 pub struct Config {
     #[clap(short = 'f', long, default_value = "1420405751")]

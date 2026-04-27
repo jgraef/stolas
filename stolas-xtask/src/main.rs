@@ -33,7 +33,7 @@ struct Args {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Deploy stolas source to the telescope via rsync
+    /// Deploy stolas source to the telescope via rsync.
     Deploy {
         /// SSH hostname to deploy to
         #[clap(short = 'H', long, env = "DEPLOY_HOST")]
