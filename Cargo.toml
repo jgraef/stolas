@@ -1,3 +1,3 @@
 [workspace]
 resolver = "2"
-members = ["stolas-core","stolas-server", "stolas-telescope", "stolas-xtask"]
+members = ["stolas-core", "stolas-server", "stolas-station", "stolas-xtask"]

@@ -7,7 +7,7 @@ use tokio::process::Command;
 pub async fn deploy(host: &str, path: &str, run: bool) -> Result<(), Error> {
     let destination = format!("{host}:{path}");
 
-    tracing::info!(destination, "Copying source tree to telescope");
+    tracing::info!(destination, "Copying source tree to station");
 
     let exit_status = Command::new("rsync")
         .args([
@@ -29,7 +29,7 @@ pub async fn deploy(host: &str, path: &str, run: bool) -> Result<(), Error> {
 
     if run {
         let command = format!(
-            "cd {} && cargo run --bin stolas-telescope --release",
+            "cd {} && cargo run --bin stolas-station --release",
             shell_escape::escape(path.into())
         );
         tracing::info!(command, "Running deployed code");
