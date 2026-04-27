@@ -46,7 +46,7 @@ TODO: Web interface
 - Take measurement without antenna connected.
 - Take measurement of cold sky
 - Take measurement of sun (for estimation of beam width)
-
+- [Lecture][17]
 ## Post-processing
 
 TODO
@@ -87,3 +87,4 @@ TODO
 [14]: https://heasarc.gsfc.nasa.gov/docs/heasarc/ofwg/ofwg_recomm.html
 [15]: https://fits.gsfc.nasa.gov/standard40/fits_standard40aa-le.pdf
 [16]: https://docs.rs/astro-math/latest/astro_math/
+[17]: https://www.youtube.com/watch?v=oR7x8vccDYY
