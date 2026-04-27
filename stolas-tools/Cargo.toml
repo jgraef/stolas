@@ -1,5 +1,5 @@
 [package]
-name = "stolas-server"
+name = "stolas-tools"
 version = "0.1.0"
 edition = "2024"
 
