@@ -11,8 +11,6 @@ gloo-utils = "0.3.0"
 leptos = { version = "0.8.19", features = ["nightly", "csr"] }
 leptos-use = "0.18.3"
 leptos_meta = "0.8.6"
-leptos_router = "0.8.13"
-leptos_styling = { version = "0.3.1", features = ["csr"] }
 reqwest-websocket = "0.6.0"
 tracing = "0.1.44"
 tracing-wasm = "0.2.1"
