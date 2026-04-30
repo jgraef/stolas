@@ -6,3 +6,10 @@ reload_html = true
 watch_path = ["src", "assets"]
 # this seems to cause the server to respond with a 200 OK
 index_on_404 = false
+
+[web.https]
+enabled = true
+# mkcert -cert-file ssl/cert.pem -key-file ssl/key.pem localhost 127.0.0.1 ::1 192.168.X.X
+mkcert = false
+key_path = "ssl/key.pem"
+cert_path = "ssl/cert.pem"

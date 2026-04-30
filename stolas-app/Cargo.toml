@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 dioxus = { version = "0.7.6", features = ["router"] }
 dioxus-leaflet = "0.3.1"
+dioxus-sdk = { version = "0.7.0", features = ["geolocation"] }
+stolas-core.workspace = true
 tracing = "0.1.44"
 
 [features]

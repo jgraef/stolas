@@ -1,10 +1,19 @@
-use dioxus::prelude::*;
+use dioxus::{
+    document::eval,
+    prelude::*,
+};
 use dioxus_leaflet::{
     LatLng,
     Map,
+    MapOptions,
     MapPosition,
     Marker,
 };
+use dioxus_sdk::geolocation::{
+    self,
+    Geocoordinates,
+};
+use stolas_core::geo::GeoCoords;
 
 use crate::components::{
     icon::Icon,
@@ -15,19 +24,109 @@ use crate::components::{
 pub fn DashboardView() -> Element {
     let mut show_location = use_signal(|| true);
 
-    /*
-    todo: use bundled leaflet js/css
-    options: MapOptions::default()
-    .with_leaflet_resources(LeafletResources::Local {
-        css_path: todo!(),
-        js_path: todo!(),
-    })
-    */
+    // Modal to set location via geolocation API
+    // todo: move this into a component/view
+
+    // todo: init_geolocator requests permissions. we should only do this once the
+    // user wants to use this feature.
+    //
+    // init_geolocator(PowerMode::High);
+    // let geolocation_coords = use_geolocation();
+    //
+    // fallback: http://ip-api.com/json
+    let geolocation_coords =
+        use_signal(|| Err::<Geocoordinates, _>(geolocation::Error::Unsupported));
 
     rsx! {
+        div { class: "modal", tabindex: "-1", id: "phone_geolocation_modal",
+            div { class: "modal-dialog",
+                div { class: "modal-content",
+                    div { class: "modal-header",
+                        h5 { class: "modal-title", "Set location from phone" }
+                        button {
+                            aria_label: "Close",
+                            class: "btn-close",
+                            "data-bs-dismiss": "modal",
+                            r#type: "button",
+                        }
+                    }
+                    div { class: "modal-body",
+                        // note: this doesn't accept signals, but their docs say it's fine ^.^
+                        {
+                            match geolocation_coords.read().clone() {
+                                Ok(coords) => {
+                                    let coords = GeoCoords {
+
+                                        latitude: coords.latitude,
+                                        longitude: coords.longitude,
+                                    };
+                                    rsx! {
+                                        p { "{coords.format()}" }
+                                        Map {
+                                            initial_position: MapPosition::new(coords.latitude, coords.longitude, 15.0),
+                                            class: "location-map",
+                                            options: MapOptions::default(),
+                                            Marker { coordinate: LatLng::new(coords.latitude, coords.longitude) }
+                                        }
+                                    }
+                                }
+                                Err(error) => {
+                                    let message = match error {
+                                        geolocation::Error::NotInitialized
+                                        | geolocation::Error::Poisoned => {
+                                            rsx! { "Waiting for geolocation..." }
+                                        }
+                                        geolocation::Error::AccessDenied => {
+                                            rsx! { "Geolocation permissions denied." }
+                                        }
+                                        geolocation::Error::DeviceError(error) => {
+                                            rsx! { "Device error: {error}" }
+                                        }
+                                        geolocation::Error::Unsupported => {
+                                            rsx! { "Geolocation unsupported." }
+                                        }
+                                    };
+                                    rsx! {
+                                        p { {message} }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    div { class: "modal-footer",
+                        button {
+                            class: "btn btn-secondary",
+                            "data-bs-dismiss": "modal",
+                            r#type: "button",
+                            "Cancel"
+                        }
+                        button {
+                            class: "btn btn-primary",
+                            "data-bs-dismiss": "modal",
+                            r#type: "button",
+                            disabled: geolocation_coords.with(|result| result.is_err()),
+                            onclick: move |_event| {
+                                if let Ok(coords) = geolocation_coords.read().clone() {
+                                    tracing::debug!(
+                                        ? coords, "todo: send api request to set this as geolocation"
+                                    );
+                                } else {
+                                    tracing::error!(
+                                        "fixme: save last-known geolocation instead of using the live-value here."
+                                    );
+                                }
+                            },
+                            "Confirm"
+                        }
+                    }
+                }
+            }
+        }
+
         div { class: "container px-2",
             div { class: "d-flex flex-row flex-wrap justify-content-evenly align-items-stretch gap-3",
 
+                // Time
                 div { class: "card flex-fill",
                     h5 { class: "card-header",
                         Icon { icon: "clock", class: "pe-2" }
@@ -43,6 +142,7 @@ pub fn DashboardView() -> Element {
                     }
                 }
 
+                // System status
                 div { class: "card flex-fill",
                     h5 { class: "card-header",
                         Icon { icon: "motherboard", class: "pe-2" }
@@ -66,31 +166,54 @@ pub fn DashboardView() -> Element {
                     }
                 }
 
+                // Geolocation
                 div { class: "card w-100",
                     h5 { class: "card-header",
                         Icon { icon: "geo-alt", class: "pe-2" }
                         "Location"
                     }
                     div { class: "card-body",
-                        if show_location() {
-                            Map {
-                                initial_position: MapPosition::new(51.505, -0.09, 4.0),
-                                class: "location-map",
-                                Marker { coordinate: LatLng::new(51.505, -0.09) }
+                        {
+                            // todo: put this into a memo
+                            let station_location = GeoCoords {
+                                latitude: 51.505,
+                                longitude: -0.09,
+                            };
+                            //let formatted_location = ;
+
+                            rsx! {
+                                if show_location() {
+                                    p { "{station_location.format()}" }
+                                    Map {
+                                        initial_position: MapPosition::new(station_location.latitude, station_location.longitude, 10.0),
+                                        class: "location-map",
+                                        options: MapOptions::default().with_dragging(false),
+                                        Marker { coordinate: LatLng::new(station_location.latitude, station_location.longitude) }
+                                    }
+                                } else {
+                                    div { class: "location-map placeholder" }
+                                }
                             }
-                        } else {
-                            div { class: "location-map placeholder" }
                         }
                     }
                     div { class: "card-footer",
                         div { class: "d-flex flex-row gap-2",
+                            // Button to grab phone geolocation
                             button {
                                 r#type: "button",
                                 class: "btn btn-primary btn-sm",
-                                onclick: move |_| { tracing::debug!("TODO: set pointing from phone") },
+                                onclick: move |_| async move {
+                                    tracing::debug!("TODO: set pointing from phone");
+
+                                    // init_geolocator(PowerMode::High);
+                                    show_modal("phone_geolocation_modal").await;
+                                    tracing::debug!("geolocation started");
+                                },
                                 Icon { icon: "phone", class: "pe-1" }
                                 "Set from phone"
                             }
+
+                            // Switch to hide location
                             div { class: "form-check form-switch",
                                 input {
                                     class: "form-check-input",
@@ -110,6 +233,7 @@ pub fn DashboardView() -> Element {
                     }
                 }
 
+                // Pointing
                 div { class: "card w-100",
                     h5 { class: "card-header",
                         Icon { icon: "compass", class: "pe-2" }
@@ -190,4 +314,15 @@ pub fn StarMap() -> Element {
             }
         }
     }
+}
+
+async fn show_modal(id: &'static str) {
+    let _ = eval(&format!(
+        r#"
+        let element = document.getElementById('{id}');
+        let modal = new bootstrap.Modal(element);
+        modal.show();
+        "#,
+    ))
+    .await;
 }

@@ -1,13 +1,13 @@
 pub mod components;
 pub mod views;
 
-use dioxus::{
-    document::Script,
-    prelude::*,
-};
+use dioxus::prelude::*;
 
 use crate::{
-    components::nav::NavBar,
+    components::{
+        BootstrapImport,
+        nav::NavBar,
+    },
     views::{
         capture::CaptureView,
         dashboard::DashboardView,
@@ -36,24 +36,12 @@ fn App() -> Element {
         });
     });*/
 
-    const BOOTSTRAP_ICONS: Asset = asset!("/assets/bootstrap-icons");
-
     rsx! {
-        Script { src: asset!("/assets/bootstrap.bundle.min.js", AssetOptions::js().with_minify(false)) }
         Stylesheet { href: asset!("/assets/main.css") }
-        Stylesheet { href: asset!("/assets/bootstrap.min.css", AssetOptions::css().with_minify(false)) }
-        Stylesheet { href: format!("{BOOTSTRAP_ICONS}/bootstrap-icons.min.css") }
+        BootstrapImport { cdn: false }
 
         Router::<Route> {}
     }
-
-    //Stylesheet { href: "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" }
-    //Script {
-    //    src: "https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js",
-    //    integrity:
-    // "sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
-    // ,    crossorigin: "anonymous",
-    //}
 }
 
 #[derive(Clone, PartialEq, Routable)]

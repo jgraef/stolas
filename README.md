@@ -71,6 +71,10 @@ TODO
 - Use FITS for storing measurements. [Recommendations][14], [Standard][15]
 - For coordinate transformations [`astro_math`][16] looks good.
 
+# Notes
+
+- [Astronomy API][18]
+
 [1]: https://3g-aerial.biz/en/online-calculations/antenna-calculations/cantenna-online-calculator
 [2]: https://www.astropeiler.de/en/beobachtungen-der-21-cm-linie-mit-einfachen-mitteln/
 [3]: https://www.nooelec.com/store/lana.html
@@ -88,3 +92,4 @@ TODO
 [15]: https://fits.gsfc.nasa.gov/standard40/fits_standard40aa-le.pdf
 [16]: https://docs.rs/astro-math/latest/astro_math/
 [17]: https://www.youtube.com/watch?v=oR7x8vccDYY
+[18]: https://astronomyapi.com/

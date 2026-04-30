@@ -1,5 +1,6 @@
 pub mod api;
 pub mod file;
+pub mod geo;
 
 use std::io::{
     Read,
