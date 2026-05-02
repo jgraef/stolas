@@ -25,7 +25,7 @@ use plotly::{
     },
 };
 use stolas_core::{
-    Config,
+    AntennaConfig,
     Frame,
     file::FileReader,
 };
@@ -115,7 +115,7 @@ fn plot(path: impl AsRef<Path>) -> Result<(), Error> {
         .chunks_exact(second_average_size)
         .map(|frames| {
             let mut bins = Vec::with_capacity(frames[0].bins.len());
-            for bin_index in 0..config.window_size {
+            for bin_index in 0..config.processing.window_size {
                 let amplitude = frames
                     .iter()
                     .map(|frame| frame.bins[bin_index])
@@ -133,13 +133,13 @@ fn plot(path: impl AsRef<Path>) -> Result<(), Error> {
         .collect::<Vec<_>>();
 
     // normalize
-    let mut ref_frame = vec![0.0; config.window_size];
+    let mut ref_frame = vec![0.0; config.processing.window_size];
     for frame in &frames {
-        for i in 0..config.window_size {
+        for i in 0..config.processing.window_size {
             ref_frame[i] += frame.bins[i];
         }
     }
-    for i in 0..config.window_size {
+    for i in 0..config.processing.window_size {
         ref_frame[i] /= frames.len() as f32;
     }
 
@@ -183,7 +183,7 @@ fn plot(path: impl AsRef<Path>) -> Result<(), Error> {
     let mut powers = vec![];
 
     for frames in &frames {
-        for bin_index in 0..config.window_size {
+        for bin_index in 0..config.processing.window_size {
             if bin_index == 0 {
                 // dc spike
                 continue;
@@ -225,24 +225,25 @@ fn plot(path: impl AsRef<Path>) -> Result<(), Error> {
 }
 
 #[allow(dead_code)]
-fn closest_bin_for_frequency(config: &Config, frequency: f32) -> usize {
-    let bin_width = config.sample_rate as f32 / config.window_size as f32;
-    let mut bin_index = ((frequency - config.center_frequency as f32) / bin_width).round() as i32;
+fn closest_bin_for_frequency(config: &AntennaConfig, frequency: f32) -> usize {
+    let bin_width = config.sdr.sample_rate as f32 / config.processing.window_size as f32;
+    let mut bin_index =
+        ((frequency - config.sdr.center_frequency as f32) / bin_width).round() as i32;
     if bin_index < 0 {
-        bin_index += config.window_size as i32;
+        bin_index += config.processing.window_size as i32;
     }
     bin_index as usize
 }
 
-fn bin_center_frequency(config: &Config, i: usize) -> f32 {
-    let bin_width = config.sample_rate as f32 / config.window_size as f32;
+fn bin_center_frequency(config: &AntennaConfig, i: usize) -> f32 {
+    let bin_width = config.sdr.sample_rate as f32 / config.processing.window_size as f32;
 
-    let offset = if i > config.window_size / 2 {
-        -(config.sample_rate as f32)
+    let offset = if i > config.processing.window_size / 2 {
+        -(config.sdr.sample_rate as f32)
     }
     else {
         0.0
     };
 
-    config.center_frequency as f32 + offset + i as f32 * bin_width
+    config.sdr.center_frequency as f32 + offset + i as f32 * bin_width
 }

@@ -24,7 +24,7 @@ use serde::{
 };
 
 use crate::{
-    Config,
+    AntennaConfig,
     Frame,
 };
 
@@ -43,7 +43,7 @@ pub enum ReadError {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FileHeader {
     pub timestamp: DateTime<Utc>,
-    pub config: Config,
+    pub config: AntennaConfig,
 }
 
 #[derive(Debug)]
@@ -80,7 +80,7 @@ impl FileReader {
     pub fn read_frame(&mut self) -> Result<Option<Frame>, ReadError> {
         match Frame::read(&mut self.reader) {
             Ok(frame) => {
-                assert_eq!(frame.bins.len(), self.header.config.window_size);
+                assert_eq!(frame.bins.len(), self.header.config.processing.window_size);
                 Ok(Some(frame))
             }
             Err(error) => {

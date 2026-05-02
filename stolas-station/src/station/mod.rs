@@ -1,53 +1,55 @@
-use std::time::Duration;
+pub mod antenna;
+pub mod sensors;
 
+use color_eyre::eyre::Error;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use stolas_core::{
-    Frame,
-    api::SensorValues,
+    AntennaConfig,
+    ProcessingConfig,
+    SdrConfig,
+    SensorConfig,
 };
-use tokio::sync::{
-    broadcast,
-    watch,
+
+use crate::station::{
+    antenna::Antenna,
+    sensors::Sensors,
 };
-use tokio_util::sync::CancellationToken;
 
-use crate::sensors::spawn_sensor_task;
-
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Station {
-    shutdown: CancellationToken,
-    sensor_values: watch::Receiver<SensorValues>,
-    //frames: broadcast::WeakSender<Frame>,
+    antenna: Antenna,
+    sensors: Sensors,
 }
 
 impl Station {
-    pub fn new() -> Self {
-        let shutdown = CancellationToken::new();
+    pub async fn new(config: StationConfig) -> Result<Self, Error> {
+        let antenna = Antenna::new(AntennaConfig {
+            sdr: config.sdr,
+            processing: config.processing,
+        })
+        .await?;
+        let sensors = Sensors::new(config.sensors);
 
-        // todo: put into config file
-        let poll_interval = Duration::from_secs(1);
-
-        let (_sensor_task, sensor_values) = spawn_sensor_task(poll_interval, shutdown.clone());
-
-        Self {
-            shutdown,
-            sensor_values,
-            //frames: todo!(),
-        }
+        Ok(Self { antenna, sensors })
     }
 
-    pub fn shutdown(&self) -> CancellationToken {
-        self.shutdown.clone()
+    pub fn antenna(&self) -> &Antenna {
+        &self.antenna
     }
 
-    pub fn sensor_values(&self) -> watch::Receiver<SensorValues> {
-        self.sensor_values.clone()
+    pub fn sensors(&self) -> &Sensors {
+        &self.sensors
     }
+}
 
-    pub fn frames(&self) -> broadcast::Receiver<Frame> {
-        /*self.frames
-        .upgrade()
-        .expect("frames channel closed")
-        .subscribe()*/
-        todo!();
-    }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StationConfig {
+    pub sdr: SdrConfig,
+
+    pub processing: ProcessingConfig,
+
+    pub sensors: SensorConfig,
 }

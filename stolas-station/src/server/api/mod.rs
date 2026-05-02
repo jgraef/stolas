@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{
     Router,
     extract::{
@@ -11,26 +13,31 @@ use axum::{
     routing,
 };
 use color_eyre::eyre::Error;
-use stolas_core::api::{
-    SensorValues,
-    StatusEvent,
+use stolas_core::api::StatusEvent;
+use tokio_util::sync::{
+    CancellationToken,
+    DropGuard,
 };
-use tokio::sync::watch;
-use tokio_util::sync::CancellationToken;
 
 use crate::station::Station;
 
 #[derive(Clone, Debug)]
 pub struct Api {
+    station: Station,
     shutdown: CancellationToken,
-    sensor_values: watch::Receiver<SensorValues>,
+    #[allow(unused)]
+    drop_guard: Arc<DropGuard>,
 }
 
 impl Api {
-    pub fn new(station: &Station) -> Self {
+    pub fn new(station: Station) -> Self {
+        let shutdown = CancellationToken::new();
+        let drop_guard = shutdown.clone().drop_guard();
+
         Self {
-            shutdown: station.shutdown().clone(),
-            sensor_values: station.sensor_values().clone(),
+            station,
+            shutdown,
+            drop_guard: Arc::new(drop_guard),
         }
     }
 
@@ -50,7 +57,9 @@ impl Api {
     }
 }
 
-async fn handle_status_websocket(mut api: Api, mut websocket: WebSocket) -> Result<(), Error> {
+async fn handle_status_websocket(api: Api, mut websocket: WebSocket) -> Result<(), Error> {
+    let mut sensor_values = api.station.sensors().sensor_values();
+
     loop {
         tokio::select! {
             _ = api.shutdown.cancelled() => break,
@@ -63,7 +72,7 @@ async fn handle_status_websocket(mut api: Api, mut websocket: WebSocket) -> Resu
                     _ => {},
                 }
             }
-            result = api.sensor_values.changed() => {
+            result = sensor_values.changed() => {
                 if result.is_err() {
                     // sensor values channel closed. this is not supposed to happen, but if it happens it should have reported an error already. we just exit then.
                     tracing::debug!("SensorValues channel closed. closing websocket");
@@ -72,7 +81,7 @@ async fn handle_status_websocket(mut api: Api, mut websocket: WebSocket) -> Resu
 
                 let message = {
                     // note: the sensor_values Ref can't be held across the await point, so we drop it before sending the message
-                    let sensor_values = api.sensor_values.borrow_and_update();
+                    let sensor_values = sensor_values.borrow_and_update();
                     ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&StatusEvent::Sensors(sensor_values.clone()))?))
                 };
                 websocket.send(message).await?;

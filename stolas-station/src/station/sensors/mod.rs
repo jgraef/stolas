@@ -9,14 +9,20 @@
 //! - Pointing via Accelerometer/Compass module
 //! - Time via RTC module
 
+pub mod time;
+
 use std::{
     ops::Deref,
-    time::Duration,
+    sync::Arc,
 };
 
 use chrono::Utc;
 use color_eyre::eyre::Error;
-use stolas_core::api::SensorValues;
+use futures_util::FutureExt;
+use stolas_core::{
+    SensorConfig,
+    api::SensorValues,
+};
 use systemstat::{
     DelayedMeasurement,
     Platform,
@@ -26,53 +32,74 @@ use tokio::{
     sync::watch,
     task::JoinHandle,
 };
-use tokio_util::sync::CancellationToken;
+use tokio_util::sync::{
+    CancellationToken,
+    DropGuard,
+};
 
 use crate::{
     log_error_once,
-    sensors::time::timedatectl_status,
+    station::sensors::time::timedatectl_status,
 };
 
-pub mod time;
-
-pub fn spawn_sensor_task(
-    poll_interval: Duration,
-    shutdown: CancellationToken,
-) -> (JoinHandle<()>, watch::Receiver<SensorValues>) {
-    let (sender, receiver) = watch::channel(SensorValues {
-        time: Utc::now(),
-        time_synced: false,
-        cpu_temperature: None,
-        cpu_load: None,
-    });
-
-    let task = tokio::spawn(async move {
-        sensor_task(sender, poll_interval, shutdown).await.unwrap();
-    });
-
-    (task, receiver)
+#[derive(Clone, Debug)]
+pub struct Sensors {
+    receiver: watch::Receiver<SensorValues>,
+    #[allow(unused)]
+    shared: Arc<Shared>,
 }
 
-async fn sensor_task(
-    sender: watch::Sender<SensorValues>,
-    poll_interval: Duration,
-    shutdown: CancellationToken,
-) -> Result<(), Error> {
-    let mut system = System::new();
-    let mut poll_interval = tokio::time::interval(poll_interval);
+#[derive(Debug)]
+#[allow(unused)]
+struct Shared {
+    drop_guard: DropGuard,
+    join_handle: JoinHandle<()>,
+}
 
-    loop {
-        tokio::select! {
-            _ = shutdown.cancelled() => break,
-            _ = poll_interval.tick() => {
-                let mut sensor_values = sender.borrow().clone();
-                poll_all(&mut sensor_values, &mut system).await;
-                let _ = sender.send(sensor_values);
-            },
+impl Sensors {
+    pub fn new(config: SensorConfig) -> Self {
+        let (sender, receiver) = watch::channel(SensorValues {
+            time: Utc::now(),
+            time_synced: false,
+            cpu_temperature: None,
+            cpu_load: None,
+        });
+
+        let shutdown = CancellationToken::new();
+        let drop_guard = shutdown.clone().drop_guard();
+        let mut system = System::new();
+        let mut poll_interval = tokio::time::interval(config.poll_interval);
+
+        let join_handle = tokio::spawn(
+            shutdown
+                .run_until_cancelled_owned(async move {
+                    tracing::debug!("starting sensor task");
+
+                    loop {
+                        poll_interval.tick().await;
+
+                        let mut sensor_values = sender.borrow().clone();
+                        poll_all(&mut sensor_values, &mut system).await;
+                        let _ = sender.send(sensor_values);
+                    }
+                })
+                .map(|_| {
+                    tracing::debug!("sensor task stopped");
+                }),
+        );
+
+        Self {
+            receiver,
+            shared: Arc::new(Shared {
+                drop_guard,
+                join_handle,
+            }),
         }
     }
 
-    Ok(())
+    pub fn sensor_values(&self) -> watch::Receiver<SensorValues> {
+        self.receiver.clone()
+    }
 }
 
 async fn poll_all(sensor_values: &mut SensorValues, system: &mut System) {

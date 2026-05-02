@@ -2,9 +2,12 @@ pub mod api;
 pub mod file;
 pub mod geo;
 
-use std::io::{
-    Read,
-    Write,
+use std::{
+    io::{
+        Read,
+        Write,
+    },
+    time::Duration,
 };
 
 use byteorder::{
@@ -22,12 +25,11 @@ use serde::{
     Serialize,
 };
 
-/// # TODO
-///
-/// Rename to distinguish it from other configurations. Name it such that it's
-/// clear that this is the configuration for sampling and preprocessing.
-#[derive(Clone, Debug, Serialize, Deserialize, Args)]
-pub struct Config {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Args)]
+pub struct SdrConfig {
+    #[clap(short = 's', long)]
+    pub sdr_serial: Option<String>,
+
     #[clap(short = 'f', long, default_value = "1420405751")]
     pub center_frequency: u32,
 
@@ -37,14 +39,33 @@ pub struct Config {
     #[clap(short = 'g', long, default_value = "20.0")]
     pub tuner_gain: f32,
 
-    // todo: rtlsdr-async doesn't support this yet.
-    //#[clap(short = 't', long)]
-    //pub bias_tee: bool,
+    #[clap(short = 't', long)]
+    pub bias_tee: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Args)]
+pub struct ProcessingConfig {
     #[clap(short, long, default_value = "512")]
     pub window_size: usize,
 
     #[clap(short, long, default_value = "50000")]
     pub average_size: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Args)]
+pub struct AntennaConfig {
+    #[clap(flatten)]
+    #[serde(flatten)]
+    pub sdr: SdrConfig,
+
+    #[clap(flatten)]
+    #[serde(flatten)]
+    pub processing: ProcessingConfig,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SensorConfig {
+    pub poll_interval: Duration,
 }
 
 #[derive(Clone, Debug)]
