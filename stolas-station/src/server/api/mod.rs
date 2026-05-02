@@ -14,6 +14,7 @@ use axum::{
 };
 use color_eyre::eyre::Error;
 use stolas_core::api::StatusEvent;
+use tokio::sync::broadcast;
 use tokio_util::sync::{
     CancellationToken,
     DropGuard,
@@ -53,6 +54,16 @@ impl Api {
                     })
                 }),
             )
+            .route(
+                "/frame",
+                routing::get(async move |State(api): State<Api>, ws: WebSocketUpgrade| {
+                    ws.on_upgrade(async move |websocket: WebSocket| {
+                        if let Err(error) = handle_frame_websocket(api, websocket).await {
+                            tracing::error!("{error}");
+                        }
+                    })
+                }),
+            )
             .with_state(self)
     }
 }
@@ -85,6 +96,53 @@ async fn handle_status_websocket(api: Api, mut websocket: WebSocket) -> Result<(
                     ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&StatusEvent::Sensors(sensor_values.clone()))?))
                 };
                 websocket.send(message).await?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn handle_frame_websocket(api: Api, mut websocket: WebSocket) -> Result<(), Error> {
+    let antenna = api.station.antenna();
+
+    let config = antenna.config();
+    websocket
+        .send(ws::Message::Text(ws::Utf8Bytes::from(
+            serde_json::to_string(&config)?,
+        )))
+        .await?;
+
+    let mut frames = antenna.frames();
+
+    loop {
+        tokio::select! {
+            _ = api.shutdown.cancelled() => break,
+            message = websocket.recv() => {
+                // right now we don't expect any messages, but we can handle the socket closing, errors, and the close message.
+                let Some(message) = message else { break; };
+                let message = message?;
+                match message {
+                    ws::Message::Close(_) => break,
+                    _ => {},
+                }
+            }
+            result = frames.recv() => {
+                match result {
+                    Ok(frame) => {
+                        websocket.send(ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&frame)?))).await?;
+                    }
+                    Err(broadcast::error::RecvError::Closed) => {
+                        tracing::debug!("frame channel closed. closing websocket");
+                        break;
+                    }
+                    Err(broadcast::error::RecvError::Lagged(lag)) => {
+                        tracing::debug!(?lag, "frame channel lagging");
+                    }
+                }
+
+
+
             }
         }
     }

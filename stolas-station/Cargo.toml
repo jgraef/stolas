@@ -17,6 +17,7 @@ futures-sink = "0.3.32"
 futures-util = { version = "0.3.32", features = ["sink"] }
 num-complex = "0.4.6"
 num-traits = "0.2.19"
+parking_lot = "0.12.5"
 rtlsdr-async = { version = "0.1.0", git = "https://github.com/jgraef/rtlsdr-async.git", features = [
     "num-complex",
 ] }

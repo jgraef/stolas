@@ -8,6 +8,7 @@ use color_eyre::eyre::{
 use futures_util::TryStreamExt;
 use num_complex::Complex;
 use num_traits::Zero;
+use parking_lot::RwLock;
 use rtlsdr_async::{
     Chunk,
     Gain,
@@ -46,6 +47,7 @@ pub struct Antenna {
 struct Shared {
     drop_guard: DropGuard,
     join_handle: JoinHandle<()>,
+    config: RwLock<AntennaConfig>,
 }
 
 impl Antenna {
@@ -57,7 +59,8 @@ impl Antenna {
         let (frame_sender, _frame_receiver) = broadcast::channel(128);
         let frame_channel = frame_sender.downgrade();
 
-        let sampling_task = SamplingTask::new(config, command_receiver, frame_sender).await?;
+        let sampling_task =
+            SamplingTask::new(config.clone(), command_receiver, frame_sender).await?;
 
         let join_handle = tokio::spawn(async move {
             tracing::debug!("starting antenna task");
@@ -78,11 +81,14 @@ impl Antenna {
             shared: Arc::new(Shared {
                 drop_guard,
                 join_handle,
+                config: RwLock::new(config),
             }),
         })
     }
 
     pub async fn reconfigure(&self, config: AntennaConfig) {
+        *self.shared.config.write() = config.clone();
+
         self.command_sender
             .send(Command::Reconfigure(config))
             .await
@@ -94,6 +100,10 @@ impl Antenna {
             .upgrade()
             .expect("frame sender closed")
             .subscribe()
+    }
+
+    pub fn config(&self) -> AntennaConfig {
+        self.shared.config.read().clone()
     }
 }
 

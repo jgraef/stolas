@@ -68,7 +68,7 @@ pub struct SensorConfig {
     pub poll_interval: Duration,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Frame {
     pub serial: u64,
     pub timestamp: DateTime<Utc>,
