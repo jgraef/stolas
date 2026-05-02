@@ -130,3 +130,9 @@ pub struct FrameStats {
     pub max: f32,
     pub average: f32,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AntennaEvent {
+    ConfigChanged(AntennaConfig),
+    Frame(Frame),
+}

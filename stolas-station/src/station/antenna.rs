@@ -18,6 +18,7 @@ use rtlsdr_async::{
 };
 use stolas_core::{
     AntennaConfig,
+    AntennaEvent,
     Frame,
     ProcessingConfig,
     SdrConfig,
@@ -37,7 +38,7 @@ use tokio_util::sync::{
 #[derive(Clone, Debug)]
 pub struct Antenna {
     command_sender: mpsc::Sender<Command>,
-    frame_channel: broadcast::WeakSender<Frame>,
+    event_channel: broadcast::WeakSender<AntennaEvent>,
     #[allow(unused)]
     shared: Arc<Shared>,
 }
@@ -56,11 +57,11 @@ impl Antenna {
         let drop_guard = shutdown.clone().drop_guard();
 
         let (command_sender, command_receiver) = mpsc::channel(16);
-        let (frame_sender, _frame_receiver) = broadcast::channel(128);
-        let frame_channel = frame_sender.downgrade();
+        let (event_sender, _event_receiver) = broadcast::channel(128);
+        let event_channel = event_sender.downgrade();
 
         let sampling_task =
-            SamplingTask::new(config.clone(), command_receiver, frame_sender).await?;
+            SamplingTask::new(config.clone(), command_receiver, event_sender).await?;
 
         let join_handle = tokio::spawn(async move {
             tracing::debug!("starting antenna task");
@@ -77,7 +78,7 @@ impl Antenna {
 
         Ok(Self {
             command_sender,
-            frame_channel,
+            event_channel,
             shared: Arc::new(Shared {
                 drop_guard,
                 join_handle,
@@ -95,10 +96,10 @@ impl Antenna {
             .expect("command receiver closed");
     }
 
-    pub fn frames(&self) -> broadcast::Receiver<Frame> {
-        self.frame_channel
+    pub fn events(&self) -> broadcast::Receiver<AntennaEvent> {
+        self.event_channel
             .upgrade()
-            .expect("frame sender closed")
+            .expect("event sender closed")
             .subscribe()
     }
 
@@ -111,7 +112,7 @@ struct SamplingTask {
     sdr: RtlSdr,
     config: AntennaConfig,
     command_receiver: mpsc::Receiver<Command>,
-    frame_sender: broadcast::Sender<Frame>,
+    event_sender: broadcast::Sender<AntennaEvent>,
     samples: Samples<Iq>,
     processing: Processing,
 }
@@ -120,7 +121,7 @@ impl SamplingTask {
     async fn new(
         config: AntennaConfig,
         command_receiver: mpsc::Receiver<Command>,
-        frame_sender: broadcast::Sender<Frame>,
+        event_sender: broadcast::Sender<AntennaEvent>,
     ) -> Result<Self, Error> {
         let processing = Processing::new(config.processing.clone());
         let sdr = open_sdr(&config.sdr)?;
@@ -131,7 +132,7 @@ impl SamplingTask {
             sdr,
             config,
             command_receiver,
-            frame_sender,
+            event_sender,
             samples,
             processing,
         })
@@ -157,16 +158,26 @@ impl SamplingTask {
     async fn handle_command(&mut self, command: Command) -> Result<(), Error> {
         match command {
             Command::Reconfigure(config) => {
+                let mut changed = false;
+
                 if config.sdr != self.config.sdr {
                     tracing::info!("Reconfiguring SDR");
                     configure_sdr(&self.sdr, &config.sdr).await?;
                     self.config.sdr = config.sdr;
+                    changed = true;
                 }
 
                 if config.processing != self.config.processing {
                     tracing::info!("Reconfiguring signal processing");
                     self.processing = Processing::new(config.processing.clone());
                     self.config.processing = config.processing;
+                    changed = true;
+                }
+
+                if changed {
+                    let _ = self
+                        .event_sender
+                        .send(AntennaEvent::ConfigChanged(self.config.clone()));
                 }
             }
         }
@@ -188,7 +199,7 @@ impl SamplingTask {
             // note: we ignore if the frame channel is closed. when the frame channel is
             // closed, the command channel is closed as well, which will cause the main loop
             // to exit.
-            let _ = self.frame_sender.send(frame);
+            let _ = self.event_sender.send(AntennaEvent::Frame(frame));
         }
 
         Ok(())

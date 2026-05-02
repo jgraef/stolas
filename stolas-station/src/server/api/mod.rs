@@ -1,26 +1,37 @@
+pub mod antenna;
+pub mod captures;
+pub mod error;
+pub mod status;
+
 use std::sync::Arc;
 
 use axum::{
     Router,
-    extract::{
-        State,
-        WebSocketUpgrade,
-        ws::{
-            self,
-            WebSocket,
-        },
-    },
     routing,
 };
-use color_eyre::eyre::Error;
-use stolas_core::api::StatusEvent;
-use tokio::sync::broadcast;
 use tokio_util::sync::{
     CancellationToken,
     DropGuard,
 };
 
-use crate::station::Station;
+use crate::{
+    server::api::{
+        antenna::{
+            get_antenna_config,
+            get_antenna_stream,
+            set_antenna_config,
+        },
+        captures::{
+            delete_capture,
+            get_capture,
+            list_captures,
+            start_capture,
+            stop_capture,
+        },
+        status::get_status_stream,
+    },
+    station::Station,
+};
 
 #[derive(Clone, Debug)]
 pub struct Api {
@@ -44,108 +55,15 @@ impl Api {
 
     pub fn into_router(self) -> Router<()> {
         Router::new()
-            .route(
-                "/status",
-                routing::get(async move |State(api): State<Api>, ws: WebSocketUpgrade| {
-                    ws.on_upgrade(async move |websocket: WebSocket| {
-                        if let Err(error) = handle_status_websocket(api, websocket).await {
-                            tracing::error!("{error}");
-                        }
-                    })
-                }),
-            )
-            .route(
-                "/frame",
-                routing::get(async move |State(api): State<Api>, ws: WebSocketUpgrade| {
-                    ws.on_upgrade(async move |websocket: WebSocket| {
-                        if let Err(error) = handle_frame_websocket(api, websocket).await {
-                            tracing::error!("{error}");
-                        }
-                    })
-                }),
-            )
+            .route("/status/ws", routing::get(get_status_stream))
+            .route("/antenna/ws", routing::get(get_antenna_stream))
+            .route("/antenna/config", routing::get(get_antenna_config))
+            .route("/antenna/config", routing::post(set_antenna_config))
+            .route("/captures", routing::get(list_captures))
+            .route("/captures/{file_name}", routing::get(get_capture))
+            .route("/captures/{file_name}", routing::delete(delete_capture))
+            .route("/captures/start", routing::post(start_capture))
+            .route("/captures/stop", routing::post(stop_capture))
             .with_state(self)
     }
-}
-
-async fn handle_status_websocket(api: Api, mut websocket: WebSocket) -> Result<(), Error> {
-    let mut sensor_values = api.station.sensors().sensor_values();
-
-    loop {
-        tokio::select! {
-            _ = api.shutdown.cancelled() => break,
-            message = websocket.recv() => {
-                // right now we don't expect any messages, but we can handle the socket closing, errors, and the close message.
-                let Some(message) = message else { break; };
-                let message = message?;
-                match message {
-                    ws::Message::Close(_) => break,
-                    _ => {},
-                }
-            }
-            result = sensor_values.changed() => {
-                if result.is_err() {
-                    // sensor values channel closed. this is not supposed to happen, but if it happens it should have reported an error already. we just exit then.
-                    tracing::debug!("SensorValues channel closed. closing websocket");
-                    break;
-                }
-
-                let message = {
-                    // note: the sensor_values Ref can't be held across the await point, so we drop it before sending the message
-                    let sensor_values = sensor_values.borrow_and_update();
-                    ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&StatusEvent::Sensors(sensor_values.clone()))?))
-                };
-                websocket.send(message).await?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-async fn handle_frame_websocket(api: Api, mut websocket: WebSocket) -> Result<(), Error> {
-    let antenna = api.station.antenna();
-
-    let config = antenna.config();
-    websocket
-        .send(ws::Message::Text(ws::Utf8Bytes::from(
-            serde_json::to_string(&config)?,
-        )))
-        .await?;
-
-    let mut frames = antenna.frames();
-
-    loop {
-        tokio::select! {
-            _ = api.shutdown.cancelled() => break,
-            message = websocket.recv() => {
-                // right now we don't expect any messages, but we can handle the socket closing, errors, and the close message.
-                let Some(message) = message else { break; };
-                let message = message?;
-                match message {
-                    ws::Message::Close(_) => break,
-                    _ => {},
-                }
-            }
-            result = frames.recv() => {
-                match result {
-                    Ok(frame) => {
-                        websocket.send(ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&frame)?))).await?;
-                    }
-                    Err(broadcast::error::RecvError::Closed) => {
-                        tracing::debug!("frame channel closed. closing websocket");
-                        break;
-                    }
-                    Err(broadcast::error::RecvError::Lagged(lag)) => {
-                        tracing::debug!(?lag, "frame channel lagging");
-                    }
-                }
-
-
-
-            }
-        }
-    }
-
-    Ok(())
 }

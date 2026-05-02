@@ -7,9 +7,16 @@ use serde::{
     Serialize,
 };
 
+use crate::{
+    AntennaConfig,
+    Frame,
+};
+
 #[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
-pub enum ApiError {
-    // todo
+#[error("Internal server error: {message}")]
+pub struct InternalError {
+    pub message: String,
+    pub backtrace: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,4 +30,19 @@ pub struct SensorValues {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum StatusEvent {
     Sensors(SensorValues),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AntennaMessage {
+    Config(AntennaConfig),
+    Frame(Frame),
+    Lagged { lag: u64 },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CaptureEntry {
+    pub file_name: String,
+    #[serde(skip_serializing_if = "std::ops::Not::not", default)]
+    pub active: bool,
+    // todo: other meta data
 }

@@ -1,3 +1,4 @@
+pub mod database;
 pub mod server;
 pub mod station;
 pub mod util;
@@ -13,6 +14,7 @@ use directories::ProjectDirs;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
+    database::Database,
     server::Server,
     station::Station,
     util::shutdown::cancel_on_ctrl_c_or_sigterm,
@@ -34,6 +36,15 @@ async fn main() -> Result<(), Error> {
     tracing::debug!(?config_path, "read config");
     let config = toml::from_str(&std::fs::read_to_string(&config_path)?)?;
 
+    // create data-dir
+    let data_dir = project_dirs.data_dir();
+    if !data_dir.exists() {
+        std::fs::create_dir_all(data_dir)?;
+    }
+
+    // open database
+    let database = Database::open(project_dirs.data_dir().join("db")).await?;
+
     //let data_path = project_dirs
     //    .state_dir()
     //    .ok_or_else(|| eyre!("Could not determine state directory"))?;
@@ -41,16 +52,19 @@ async fn main() -> Result<(), Error> {
 
     // create the station sub-systems.
 
-    let station = Station::new(config).await?;
+    let station = Station::new(config, database, data_dir).await?;
 
     // link Ctrl-C and SIGTERM to the shutdown CancellationToken
     let shutdown = CancellationToken::new();
     cancel_on_ctrl_c_or_sigterm(shutdown.clone());
 
     // start webserver
-    if let Some(server_address) = args.server_address {
-        let _server = Server::new(&server_address, station.clone()).await?;
+    let _server = if let Some(server_address) = args.server_address {
+        Some(Server::new(&server_address, station.clone()).await?)
     }
+    else {
+        None
+    };
 
     // wait for cancellation token
     shutdown.cancelled().await;

@@ -22,8 +22,10 @@ rtlsdr-async = { version = "0.1.0", git = "https://github.com/jgraef/rtlsdr-asyn
     "num-complex",
 ] }
 rustfft = "6.4.1"
+safe-path = "0.1.0"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
+sqlx = { version = "0.8.6", features = ["chrono", "migrate", "runtime-tokio", "sqlite"] }
 stolas-core.workspace = true
 systemstat = "0.2.6"
 tokio = { version = "1.52.1", features = [
