@@ -16,7 +16,6 @@ use axum::{
         Response,
     },
 };
-use stolas_core::api::InternalError;
 use tokio::io::AsyncSeekExt;
 use tokio_util::io::ReaderStream;
 

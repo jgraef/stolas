@@ -31,14 +31,20 @@ pub async fn get_antenna_stream(State(api): State<Api>, ws: WebSocketUpgrade) ->
 async fn handle_antenna_stream(api: Api, mut websocket: WebSocket) -> Result<(), Error> {
     let antenna = api.station.antenna();
 
-    let mut config = antenna.config();
-    websocket
-        .send(ws::Message::Text(ws::Utf8Bytes::from(
-            serde_json::to_string(&AntennaMessage::Config(config.clone()))?,
-        )))
-        .await?;
-
+    let mut config = antenna.config().clone();
     let mut events = antenna.events();
+
+    {
+        // send current antenna config at startup and mark that value as seen in the
+        // channel
+
+        let config = config.borrow_and_update().clone();
+        websocket
+            .send(ws::Message::Text(ws::Utf8Bytes::from(
+                serde_json::to_string(&AntennaMessage::Config(config))?,
+            )))
+            .await?;
+    }
 
     loop {
         tokio::select! {
@@ -52,32 +58,23 @@ async fn handle_antenna_stream(api: Api, mut websocket: WebSocket) -> Result<(),
                     _ => {},
                 }
             }
-            result = events.recv() => {
-                match result {
+            _ = config.changed() => {
+                let config = config.borrow().clone();
+                websocket.send(ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&AntennaMessage::Config(config))?))).await?;
+            }
+            event = events.recv() => {
+                match event {
                     Ok(AntennaEvent::Frame(frame)) => {
                         websocket.send(ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&AntennaMessage::Frame(frame))?))).await?;
                     }
-                    Ok(AntennaEvent::ConfigChanged(new_config)) => {
-                        config = new_config;
-                        websocket.send(ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&AntennaMessage::Config(config.clone()))?))).await?;
+                    Ok(AntennaEvent::ConfigChanged(_config)) => {
+                        // we ignore these events and use the config channel instead, as this is not affected by lag
                     }
                     Err(broadcast::error::RecvError::Closed) => {
                         tracing::debug!("frame channel closed. closing websocket");
                         break;
                     }
                     Err(broadcast::error::RecvError::Lagged(lag)) => {
-                        let new_config = antenna.config();
-                        if new_config != config {
-                            // config changed when we missed messages
-                            config = new_config.clone();
-
-                            websocket
-                                .send(ws::Message::Text(ws::Utf8Bytes::from(
-                                    serde_json::to_string(&AntennaMessage::Config(new_config))?,
-                                )))
-                                .await?;
-                        }
-
                         websocket
                             .send(ws::Message::Text(ws::Utf8Bytes::from(
                                 serde_json::to_string(&AntennaMessage::Lagged { lag })?,
@@ -97,7 +94,7 @@ async fn handle_antenna_stream(api: Api, mut websocket: WebSocket) -> Result<(),
 }
 
 pub async fn get_antenna_config(State(api): State<Api>) -> Json<AntennaConfig> {
-    Json(api.station.antenna().config())
+    Json(api.station.antenna().config().borrow().clone())
 }
 
 pub async fn set_antenna_config(State(api): State<Api>, Json(config): Json<AntennaConfig>) {

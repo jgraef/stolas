@@ -10,20 +10,17 @@ use color_eyre::eyre::{
     Error,
     bail,
 };
-use futures_util::{
-    Stream,
-    StreamExt,
-    TryStreamExt,
-};
+use futures_util::TryStreamExt;
 use parking_lot::RwLock;
 use safe_path::scoped_join;
 use stolas_core::{
-    Frame,
+    AntennaEvent,
     api::CaptureEntry,
 };
 use tokio::{
     fs::File,
     io::BufReader,
+    sync::broadcast,
     task::JoinHandle,
 };
 use tokio_util::sync::{
@@ -31,7 +28,10 @@ use tokio_util::sync::{
     DropGuard,
 };
 
-use crate::database::Database;
+use crate::{
+    database::Database,
+    station::antenna::Antenna,
+};
 
 #[derive(Clone, Debug)]
 pub struct Captures {
@@ -117,11 +117,7 @@ impl Captures {
         Ok(())
     }
 
-    pub fn start(
-        &self,
-        file_name: impl AsRef<str>,
-        frames: impl Stream<Item = Frame> + Send + Sync + Unpin + 'static,
-    ) {
+    pub fn start(&self, file_name: impl AsRef<str>, antenna: Antenna) {
         let file_name = file_name.as_ref().to_owned();
 
         let shutdown = CancellationToken::new();
@@ -134,7 +130,7 @@ impl Captures {
             async move {
                 tracing::info!(file_name, "Starting capture");
 
-                if let Err(error) = write_capture(file_path, frames, shutdown).await {
+                if let Err(error) = write_capture(file_path, antenna, shutdown).await {
                     tracing::error!(%error, "capture failed");
                 }
                 else {
@@ -162,20 +158,39 @@ struct ActiveCapture {
 
 async fn write_capture(
     path: PathBuf,
-    mut frames: impl Stream<Item = Frame> + Send + Sync + Unpin + 'static,
+    antenna: Antenna,
     shutdown: CancellationToken,
 ) -> Result<(), Error> {
+    let mut config = antenna.config().clone();
+    let mut events = antenna.events();
+
+    // initial config
+    let initial_config = config.borrow_and_update().clone();
+
+    //let mut capture_file = CaptureFileWrite::open(&path, &config)?;
+
     loop {
         tokio::select! {
             _ = shutdown.cancelled() => break,
-            frame = frames.next() => {
-                let Some(frame) = frame else {
-                    tracing::warn!("frame stream closed");
-                    break;
-                };
+            event = events.recv() => {
+                match event {
+                    Ok(AntennaEvent::Frame(frame)) => {
+                        //capture_file.write_frame(&frame)?;
+                        todo!();
+                    }
+                    Ok(AntennaEvent::ConfigChanged(_config)) => {
+                        // we ignore these events and use the config channel instead, as this is not affected by lag
+                    }
+                    Err(broadcast::error::RecvError::Closed) => {
+                        tracing::debug!("frame channel closed. ending capture.");
+                        break;
+                    }
+                    Err(broadcast::error::RecvError::Lagged(lag)) => {
+                        tracing::debug!(?lag, "frame channel lagging");
+                    }
+                }
 
-                todo!();
-                //capture_file.write_frame(&frame)?;
+
             }
         }
     }

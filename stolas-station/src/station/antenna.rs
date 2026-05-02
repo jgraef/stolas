@@ -8,7 +8,6 @@ use color_eyre::eyre::{
 use futures_util::TryStreamExt;
 use num_complex::Complex;
 use num_traits::Zero;
-use parking_lot::RwLock;
 use rtlsdr_async::{
     Chunk,
     Gain,
@@ -27,6 +26,7 @@ use tokio::{
     sync::{
         broadcast,
         mpsc,
+        watch,
     },
     task::JoinHandle,
 };
@@ -38,7 +38,8 @@ use tokio_util::sync::{
 #[derive(Clone, Debug)]
 pub struct Antenna {
     command_sender: mpsc::Sender<Command>,
-    event_channel: broadcast::WeakSender<AntennaEvent>,
+    weak_event_sender: broadcast::WeakSender<AntennaEvent>,
+    config_receiver: watch::Receiver<AntennaConfig>,
     #[allow(unused)]
     shared: Arc<Shared>,
 }
@@ -48,7 +49,6 @@ pub struct Antenna {
 struct Shared {
     drop_guard: DropGuard,
     join_handle: JoinHandle<()>,
-    config: RwLock<AntennaConfig>,
 }
 
 impl Antenna {
@@ -58,10 +58,16 @@ impl Antenna {
 
         let (command_sender, command_receiver) = mpsc::channel(16);
         let (event_sender, _event_receiver) = broadcast::channel(128);
-        let event_channel = event_sender.downgrade();
+        let weak_event_sender = event_sender.downgrade();
+        let (config_sender, config_receiver) = watch::channel(config.clone());
 
-        let sampling_task =
-            SamplingTask::new(config.clone(), command_receiver, event_sender).await?;
+        let sampling_task = SamplingTask::new(
+            config.clone(),
+            command_receiver,
+            event_sender,
+            config_sender,
+        )
+        .await?;
 
         let join_handle = tokio::spawn(async move {
             tracing::debug!("starting antenna task");
@@ -78,18 +84,16 @@ impl Antenna {
 
         Ok(Self {
             command_sender,
-            event_channel,
+            weak_event_sender,
+            config_receiver,
             shared: Arc::new(Shared {
                 drop_guard,
                 join_handle,
-                config: RwLock::new(config),
             }),
         })
     }
 
     pub async fn reconfigure(&self, config: AntennaConfig) {
-        *self.shared.config.write() = config.clone();
-
         self.command_sender
             .send(Command::Reconfigure(config))
             .await
@@ -97,22 +101,22 @@ impl Antenna {
     }
 
     pub fn events(&self) -> broadcast::Receiver<AntennaEvent> {
-        self.event_channel
+        self.weak_event_sender
             .upgrade()
             .expect("event sender closed")
             .subscribe()
     }
 
-    pub fn config(&self) -> AntennaConfig {
-        self.shared.config.read().clone()
+    pub fn config(&self) -> &watch::Receiver<AntennaConfig> {
+        &self.config_receiver
     }
 }
 
 struct SamplingTask {
     sdr: RtlSdr,
-    config: AntennaConfig,
     command_receiver: mpsc::Receiver<Command>,
     event_sender: broadcast::Sender<AntennaEvent>,
+    config_sender: watch::Sender<AntennaConfig>,
     samples: Samples<Iq>,
     processing: Processing,
 }
@@ -122,6 +126,7 @@ impl SamplingTask {
         config: AntennaConfig,
         command_receiver: mpsc::Receiver<Command>,
         event_sender: broadcast::Sender<AntennaEvent>,
+        config_sender: watch::Sender<AntennaConfig>,
     ) -> Result<Self, Error> {
         let processing = Processing::new(config.processing.clone());
         let sdr = open_sdr(&config.sdr)?;
@@ -130,9 +135,9 @@ impl SamplingTask {
 
         Ok(Self {
             sdr,
-            config,
             command_receiver,
             event_sender,
+            config_sender,
             samples,
             processing,
         })
@@ -158,26 +163,43 @@ impl SamplingTask {
     async fn handle_command(&mut self, command: Command) -> Result<(), Error> {
         match command {
             Command::Reconfigure(config) => {
-                let mut changed = false;
+                // update config in the channel, while checking which part changed.
+                // this doesn't reconfigure any parts of the pipeline yet, as we can't do async
+                // or handle errors in the closure.
 
-                if config.sdr != self.config.sdr {
+                let mut sdr_config_changed = false;
+                let mut processing_config_changed = false;
+
+                self.config_sender.send_if_modified(|current_config| {
+                    if config.sdr != current_config.sdr {
+                        current_config.sdr = config.sdr.clone();
+                        sdr_config_changed = true;
+                    }
+
+                    if config.processing != current_config.processing {
+                        current_config.processing = config.processing.clone();
+                        processing_config_changed = true;
+                    }
+
+                    sdr_config_changed || processing_config_changed
+                });
+
+                // now reconfigure the affected parts of the pipeline
+
+                if sdr_config_changed {
                     tracing::info!("Reconfiguring SDR");
                     configure_sdr(&self.sdr, &config.sdr).await?;
-                    self.config.sdr = config.sdr;
-                    changed = true;
                 }
 
-                if config.processing != self.config.processing {
+                if processing_config_changed {
                     tracing::info!("Reconfiguring signal processing");
                     self.processing = Processing::new(config.processing.clone());
-                    self.config.processing = config.processing;
-                    changed = true;
                 }
 
-                if changed {
-                    let _ = self
-                        .event_sender
-                        .send(AntennaEvent::ConfigChanged(self.config.clone()));
+                // and finally we also emit an antenna event
+
+                if sdr_config_changed || processing_config_changed {
+                    let _ = self.event_sender.send(AntennaEvent::ConfigChanged(config));
                 }
             }
         }
