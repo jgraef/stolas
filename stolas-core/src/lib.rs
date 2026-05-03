@@ -72,6 +72,11 @@ pub struct SensorConfig {
 pub struct Frame {
     pub serial: u64,
     pub timestamp: DateTime<Utc>,
+
+    /// Power in linear, arbitrary units. The time interval and bandwidth over
+    /// which this is depends on the configuration. The `Processing` struct in
+    /// `stolas-station` has a comment about it, but we need to refine this to
+    /// values that astronomers actually use and then document this properly.
     pub bins: Box<[f32]>,
 }
 
@@ -121,6 +126,10 @@ impl Frame {
         }
 
         Ok(())
+    }
+
+    pub fn byte_length(&self) -> u32 {
+        (self.bins.len() * 4).try_into().unwrap()
     }
 }
 
