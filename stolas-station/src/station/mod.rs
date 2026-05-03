@@ -4,75 +4,69 @@ pub mod sensors;
 
 use std::path::Path;
 
-use color_eyre::eyre::Error;
-use serde::{
-    Deserialize,
-    Serialize,
-};
-use stolas_core::{
-    AntennaConfig,
-    ProcessingConfig,
-    SdrConfig,
-    SensorConfig,
+use color_eyre::eyre::{
+    Error,
+    eyre,
 };
 
 use crate::{
+    config::Config,
     database::Database,
     station::{
-        antenna::Antenna,
+        antenna::{
+            Antenna,
+            PipelineOptions,
+            ReceiverOptions,
+        },
         captures::Captures,
-        sensors::Sensors,
     },
 };
 
 #[derive(Clone, Debug)]
 pub struct Station {
     antenna: Antenna,
-    sensors: Sensors,
     captures: Captures,
 }
 
 impl Station {
     pub async fn new(
-        config: StationConfig,
+        config: Config,
         database: Database,
         data_path: impl AsRef<Path>,
     ) -> Result<Self, Error> {
-        let antenna = Antenna::new(AntennaConfig {
-            sdr: config.sdr,
-            processing: config.processing,
-        })
-        .await?;
+        let antenna = Antenna::new(config.antenna.clone())?;
 
-        let sensors = Sensors::new(config.sensors);
+        if let Some(default_profile) = &config.antenna.default_profile {
+            let profile = config
+                .profiles
+                .get(default_profile)
+                .ok_or_else(|| eyre!("Profile not found: {default_profile}"))?;
+
+            antenna
+                .start(
+                    ReceiverOptions {
+                        center_frequency: profile.center_frequency,
+                        sample_rate: profile.sample_rate,
+                        tuner_gain: profile.tuner_gain,
+                    },
+                    PipelineOptions {
+                        window_size: profile.window_size,
+                        average_size: profile.average_size,
+                    },
+                )
+                .await?;
+        }
 
         let captures = Captures::new(database, data_path.as_ref().join("captures"))?;
 
-        Ok(Self {
-            antenna,
-            sensors,
-            captures,
-        })
+        Ok(Self { antenna, captures })
     }
 
     pub fn antenna(&self) -> &Antenna {
         &self.antenna
     }
 
-    pub fn sensors(&self) -> &Sensors {
-        &self.sensors
-    }
-
     pub fn captures(&self) -> &Captures {
         &self.captures
     }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct StationConfig {
-    pub sdr: SdrConfig,
-
-    pub processing: ProcessingConfig,
-
-    pub sensors: SensorConfig,
 }

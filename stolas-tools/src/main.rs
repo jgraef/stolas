@@ -160,7 +160,7 @@ fn plot(path: impl AsRef<Path>) -> Result<(), Error> {
             timestamps.push(frames.timestamp.to_rfc3339());
 
             for bin_index in 0..config.window_size {
-                let power_db = 20.0 * frames.bins[bin_index].log10();
+                let power_db = 10.0 * frames.bins[bin_index].log10();
                 powers[bin_index].push(power_db);
             }
         }
@@ -188,7 +188,7 @@ fn plot(path: impl AsRef<Path>) -> Result<(), Error> {
                 // dc spike
                 continue;
             }
-            let power_db = 20.0 * frames.bins[bin_index].log10();
+            let power_db = 10.0 * frames.bins[bin_index].log10();
 
             timestamps.push(frames.timestamp.to_rfc3339());
             frequencies.push((bin_center_frequency(&config, bin_index) / 1000.0).round() / 1000.0);

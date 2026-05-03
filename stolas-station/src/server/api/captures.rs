@@ -66,10 +66,11 @@ pub async fn start_capture(
     State(api): State<Api>,
     Path(file_name): Path<String>,
 ) -> ApiResponse<(), Error> {
-    api.station
-        .captures()
-        .start(&file_name, api.station.antenna().clone())
-        .into()
+    /*api.station
+    .captures()
+    .start(&file_name, api.station.antenna().clone())
+    .into()*/
+    todo!();
 }
 
 pub async fn stop_capture(State(api): State<Api>) {

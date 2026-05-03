@@ -1,0 +1,26 @@
+[station]
+name = "Stolas Test"
+# Station location
+location = { lat = 48.85836924118482, long = 2.2944779905489505 }
+
+
+#[receiver]
+# Specify SDR by serial.
+# serial = "XXXX"
+#
+# Enable Bias-T
+# bias_tee = true
+
+
+# Create a profile
+[profiles.default]
+# Tune to 1.42 GHz
+center_frequency = 1420000000
+# Sample at 2.4 MHz
+sample_rate = 2400000
+# 20 dB gain
+tuner_gain = 20.0
+# Record 512 frequency bins
+window_size = 512
+# Average 50k chunks
+average_size = 50000

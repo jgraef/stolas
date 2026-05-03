@@ -26,3 +26,7 @@ macro_rules! log_error_once {
         result
     }};
 }
+
+pub fn linear_to_db(value: f32) -> f32 {
+    10.0 * value.log10()
+}

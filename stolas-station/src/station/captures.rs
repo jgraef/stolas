@@ -39,7 +39,10 @@ use tokio_util::sync::{
 
 use crate::{
     database::Database,
-    station::antenna::Antenna,
+    station::{
+        Station,
+        antenna::Antenna,
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -126,7 +129,7 @@ impl Captures {
         Ok(())
     }
 
-    pub fn start(&self, file_name: impl AsRef<str>, antenna: Antenna) -> Result<(), Error> {
+    pub fn start(&self, file_name: impl AsRef<str>, antenna: &Antenna) -> Result<(), Error> {
         let file_name = file_name.as_ref().to_owned();
         let file_path = self.file_path.join(&file_name);
 
@@ -173,9 +176,9 @@ struct CaptureWriter {
 }
 
 impl CaptureWriter {
-    fn open(path: impl AsRef<Path>, antenna: Antenna) -> Result<Self, Error> {
-        let mut config = antenna.config().clone();
-        let events = antenna.events();
+    fn open(path: impl AsRef<Path>, antenna: &Antenna) -> Result<Self, Error> {
+        /*let mut config = station.config().clone();
+        let frames = station.antenna().frames();
 
         // initial config
         let initial_config = config.borrow_and_update().clone();
@@ -193,7 +196,8 @@ impl CaptureWriter {
             config,
             events,
             writer,
-        })
+        })*/
+        todo!();
     }
 
     async fn run(mut self, shutdown: CancellationToken) -> Result<(), Error> {

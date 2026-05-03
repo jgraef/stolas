@@ -10,7 +10,6 @@ use axum::{
     response::IntoResponse,
 };
 use color_eyre::eyre::Error;
-use stolas_core::api::StatusEvent;
 
 use crate::server::api::Api;
 
@@ -23,7 +22,7 @@ pub async fn get_status_stream(State(api): State<Api>, ws: WebSocketUpgrade) -> 
 }
 
 async fn handle_status_stream(api: Api, mut websocket: WebSocket) -> Result<(), Error> {
-    let mut sensor_values = api.station.sensors().sensor_values();
+    //let mut sensor_values = api.station.sensors().sensor_values();
 
     loop {
         tokio::select! {
@@ -37,7 +36,7 @@ async fn handle_status_stream(api: Api, mut websocket: WebSocket) -> Result<(), 
                     _ => {},
                 }
             }
-            result = sensor_values.changed() => {
+            /*result = sensor_values.changed() => {
                 if result.is_err() {
                     // sensor values channel closed. this is not supposed to happen, but if it happens it should have reported an error already. we just exit then.
                     tracing::debug!("SensorValues channel closed. closing websocket");
@@ -50,7 +49,7 @@ async fn handle_status_stream(api: Api, mut websocket: WebSocket) -> Result<(), 
                     ws::Message::Text(ws::Utf8Bytes::from(serde_json::to_string(&StatusEvent::Sensors(sensor_values.clone()))?))
                 };
                 websocket.send(message).await?;
-            }
+            }*/
         }
     }
 
