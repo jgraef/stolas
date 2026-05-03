@@ -326,11 +326,35 @@ impl Processing {
                 // take magnitude of spectrum
                 assert!(self.freq_buffer.is_empty());
                 for i in 0..self.config.window_size {
-                    self.freq_buffer.push(self.sample_buffer[i].norm());
+                    // calculate power
+                    //
+                    // https://www.tek.com/en/blog/calculating-rf-power-iq-samples
+                    //
+                    // though the input is not in Volt, so we don't need to divide by 50 Ohm. The
+                    // calculated power will just be in an arbitrary scale.
+
+                    let p_rms = self.sample_buffer[i].norm_sqr();
+                    self.freq_buffer.push(p_rms);
                 }
 
                 // average spectra
                 if let Some(average) = self.average.push(&self.freq_buffer) {
+                    // todo: we could convert to dB here, if we wanted to
+                    //
+                    // https://dsp.stackexchange.com/questions/19615/converting-raw-i-q-to-db
+                    //
+                    // average[i] = 10.0 * average[i].log10();
+                    //
+                    // since our input samples are scaled to [-1, 1], this would be dbFFS
+                    //
+                    // Kevin's this stack overflow answer also touches on "power spectral density".
+                    // For this one would divide the power by bin width before converting to dB.
+                    // we need to check the Radio Astronomy book what we actually need here.
+                    //
+                    // but anyway, the output array measures the power (linear, arbitrary scale)
+                    // received over `average_size * window_size / sample_rate` seconds over
+                    // frequency bins of `sample_rate / window_size` Hz width.
+
                     averages.push(Frame {
                         serial: self.num_frames.try_into().unwrap(),
                         timestamp: Utc::now(),

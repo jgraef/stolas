@@ -16,6 +16,7 @@ use axum::{
         Response,
     },
 };
+use color_eyre::eyre::Error;
 use tokio::io::AsyncSeekExt;
 use tokio_util::io::ReaderStream;
 
@@ -54,19 +55,23 @@ pub async fn get_capture(State(api): State<Api>, Path(file_name): Path<String>) 
     (headers, body).into_response()
 }
 
-pub async fn delete_capture(State(api): State<Api>, Path(file_name): Path<String>) -> StatusCode {
-    if api.station.captures().delete(&file_name).await.is_err() {
-        StatusCode::NOT_FOUND
-    }
-    else {
-        StatusCode::OK
-    }
+pub async fn delete_capture(
+    State(api): State<Api>,
+    Path(file_name): Path<String>,
+) -> ApiResponse<(), Error> {
+    api.station.captures().delete(&file_name).await.into()
 }
 
-pub async fn start_capture(State(api): State<Api>, Path(file_name): Path<String>) {
-    todo!();
+pub async fn start_capture(
+    State(api): State<Api>,
+    Path(file_name): Path<String>,
+) -> ApiResponse<(), Error> {
+    api.station
+        .captures()
+        .start(&file_name, api.station.antenna().clone())
+        .into()
 }
 
 pub async fn stop_capture(State(api): State<Api>) {
-    todo!();
+    api.station.captures().stop();
 }

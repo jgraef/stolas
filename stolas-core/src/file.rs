@@ -51,16 +51,17 @@ pub struct FileHeader {
 }
 
 #[derive(Debug)]
-pub struct FileReader {
-    reader: BufReader<File>,
+pub struct FileReader<R> {
+    reader: R,
     version: u16,
     header: FileHeader,
 }
 
-impl FileReader {
-    pub fn open(path: impl AsRef<Path>) -> Result<FileReader, ReadError> {
-        let mut reader = BufReader::new(File::open(path)?);
-
+impl<R> FileReader<R>
+where
+    R: Read + Seek,
+{
+    pub fn new(mut reader: R) -> Result<FileReader<R>, ReadError> {
         // read and verify file signature
         let mut signature = [0; 6];
         reader.read_exact(&mut signature)?;
@@ -166,6 +167,12 @@ impl FileReader {
     }
 }
 
+impl FileReader<BufReader<File>> {
+    pub fn open(path: impl AsRef<Path>) -> Result<Self, ReadError> {
+        Self::new(BufReader::new(File::open(path)?))
+    }
+}
+
 pub const CHUNK_FRAME: u8 = b'F';
 pub const CHUNK_CONFIG: u8 = b'C';
 pub const CHUNK_DROPPED: u8 = b'D';
@@ -188,22 +195,17 @@ pub enum WriteError {
 }
 
 #[derive(Debug)]
-pub struct FileWriter {
-    writer: BufWriter<File>,
+pub struct FileWriter<W> {
+    writer: W,
 }
 
-impl FileWriter {
+impl<W> FileWriter<W>
+where
+    W: Write,
+{
     pub const VERSION: u16 = 0x0002;
 
-    pub fn open(path: impl AsRef<Path>, header: &FileHeader) -> Result<Self, WriteError> {
-        let path = path.as_ref();
-        let timestamp = Utc::now();
-
-        std::fs::create_dir_all(path)?;
-
-        let file_path = path.join(format!("{}.rec", timestamp.to_rfc3339()));
-        let mut writer = BufWriter::new(File::create_new(&file_path)?);
-
+    pub fn new(mut writer: W, header: &FileHeader) -> Result<Self, WriteError> {
         let header_json = serde_json::to_vec(&header)?;
         writer.write_all(b"STOLAS")?;
         writer.write_u16::<BigEndian>(Self::VERSION)?;
@@ -222,7 +224,6 @@ impl FileWriter {
     pub fn write_frame(&mut self, frame: &Frame) -> Result<(), WriteError> {
         self.write_chunk_header(CHUNK_FRAME, frame.byte_length())?;
         frame.write(&mut self.writer)?;
-        self.writer.flush()?;
         Ok(())
     }
 
@@ -230,14 +231,23 @@ impl FileWriter {
         let config_json = serde_json::to_vec(config)?;
         self.write_chunk_header(CHUNK_CONFIG, config_json.len().try_into().unwrap())?;
         self.writer.write_all(&config_json)?;
-        self.writer.flush()?;
         Ok(())
     }
 
     pub fn write_dropped(&mut self, num_dropped: u64) -> Result<(), WriteError> {
         self.write_chunk_header(CHUNK_DROPPED, 8)?;
         self.writer.write_u64::<BigEndian>(num_dropped)?;
+        Ok(())
+    }
+
+    pub fn flush(&mut self) -> Result<(), WriteError> {
         self.writer.flush()?;
         Ok(())
+    }
+}
+
+impl FileWriter<BufWriter<File>> {
+    pub fn open(path: impl AsRef<Path>, header: &FileHeader) -> Result<Self, WriteError> {
+        Self::new(BufWriter::new(File::create(path)?), header)
     }
 }

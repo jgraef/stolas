@@ -10,6 +10,12 @@ use stolas_core::api::InternalError;
 #[derive(Clone, Debug)]
 pub struct ApiResponse<S, E>(pub Result<S, E>);
 
+impl<S, E> From<Result<S, E>> for ApiResponse<S, E> {
+    fn from(value: Result<S, E>) -> Self {
+        Self(value)
+    }
+}
+
 impl<S, E> IntoResponse for ApiResponse<S, E>
 where
     S: Serialize,

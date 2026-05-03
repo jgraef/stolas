@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use chrono::Utc;
 use color_eyre::eyre::{
     Error,
     bail,
@@ -14,13 +15,21 @@ use futures_util::TryStreamExt;
 use parking_lot::RwLock;
 use safe_path::scoped_join;
 use stolas_core::{
+    AntennaConfig,
     AntennaEvent,
     api::CaptureEntry,
+    file::{
+        FileHeader,
+        FileWriter,
+    },
 };
 use tokio::{
     fs::File,
     io::BufReader,
-    sync::broadcast,
+    sync::{
+        broadcast,
+        watch,
+    },
     task::JoinHandle,
 };
 use tokio_util::sync::{
@@ -117,27 +126,19 @@ impl Captures {
         Ok(())
     }
 
-    pub fn start(&self, file_name: impl AsRef<str>, antenna: Antenna) {
+    pub fn start(&self, file_name: impl AsRef<str>, antenna: Antenna) -> Result<(), Error> {
         let file_name = file_name.as_ref().to_owned();
+        let file_path = self.file_path.join(&file_name);
+
+        tracing::info!(file_name, "Starting capture");
+        let writer = CaptureWriter::open(&file_path, antenna)?;
 
         let shutdown = CancellationToken::new();
         let drop_guard = shutdown.clone().drop_guard();
 
-        let join_handle = tokio::spawn({
-            let file_name = file_name.clone();
-            let file_path = self.file_path.join(&file_name);
-
-            async move {
-                tracing::info!(file_name, "Starting capture");
-
-                if let Err(error) = write_capture(file_path, antenna, shutdown).await {
-                    tracing::error!(%error, "capture failed");
-                }
-                else {
-                    tracing::info!(file_name, "Capture stopped");
-                }
-
-                // todo
+        let join_handle = tokio::spawn(async move {
+            if let Err(error) = writer.run(shutdown).await {
+                tracing::error!(%error, "capture writer failed");
             }
         });
 
@@ -146,54 +147,87 @@ impl Captures {
             drop_guard,
             join_handle,
         });
+
+        Ok(())
+    }
+
+    pub fn stop(&self) {
+        *self.active.write() = None;
     }
 }
 
 #[derive(Debug)]
 struct ActiveCapture {
     file_name: String,
+    #[allow(unused)]
     drop_guard: DropGuard,
+    #[allow(unused)]
     join_handle: JoinHandle<()>,
 }
 
-async fn write_capture(
-    path: PathBuf,
-    antenna: Antenna,
-    shutdown: CancellationToken,
-) -> Result<(), Error> {
-    let mut config = antenna.config().clone();
-    let mut events = antenna.events();
+#[derive(Debug)]
+struct CaptureWriter {
+    config: watch::Receiver<AntennaConfig>,
+    events: broadcast::Receiver<AntennaEvent>,
+    writer: FileWriter<std::io::BufWriter<std::fs::File>>,
+}
 
-    // initial config
-    let initial_config = config.borrow_and_update().clone();
+impl CaptureWriter {
+    fn open(path: impl AsRef<Path>, antenna: Antenna) -> Result<Self, Error> {
+        let mut config = antenna.config().clone();
+        let events = antenna.events();
 
-    //let mut capture_file = CaptureFileWrite::open(&path, &config)?;
+        // initial config
+        let initial_config = config.borrow_and_update().clone();
 
-    loop {
-        tokio::select! {
-            _ = shutdown.cancelled() => break,
-            event = events.recv() => {
-                match event {
-                    Ok(AntennaEvent::Frame(frame)) => {
-                        //capture_file.write_frame(&frame)?;
-                        todo!();
-                    }
-                    Ok(AntennaEvent::ConfigChanged(_config)) => {
-                        // we ignore these events and use the config channel instead, as this is not affected by lag
-                    }
-                    Err(broadcast::error::RecvError::Closed) => {
-                        tracing::debug!("frame channel closed. ending capture.");
-                        break;
-                    }
-                    Err(broadcast::error::RecvError::Lagged(lag)) => {
-                        tracing::debug!(?lag, "frame channel lagging");
-                    }
-                }
+        // open writer. the initial antenna config will be written to the header
+        let writer = FileWriter::open(
+            path,
+            &FileHeader {
+                timestamp: Utc::now(),
+                config: initial_config,
+            },
+        )?;
 
-
-            }
-        }
+        Ok(Self {
+            config,
+            events,
+            writer,
+        })
     }
 
-    Ok(())
+    async fn run(mut self, shutdown: CancellationToken) -> Result<(), Error> {
+        loop {
+            tokio::select! {
+                _ = shutdown.cancelled() => break,
+                _ = self.config.changed() => {
+                    //let new_config = self.config.borrow_and_update().clone();
+                }
+                event = self.events.recv() => {
+                    match event {
+                        Ok(AntennaEvent::Frame(frame)) => {
+                            self.writer.write_frame(&frame)?;
+                        }
+                        Ok(AntennaEvent::ConfigChanged(config)) => {
+                            self.writer.write_config(&config)?;
+                            // we ignore these events and use the config channel instead, as this is not affected by lag
+                        }
+                        Err(broadcast::error::RecvError::Closed) => {
+                            tracing::debug!("frame channel closed. ending capture.");
+                            break;
+                        }
+                        Err(broadcast::error::RecvError::Lagged(lag)) => {
+                            tracing::debug!(?lag, "frame channel lagging");
+                            self.writer.write_dropped(lag)?;
+                        }
+                    }
+                }
+            }
+        }
+
+        // make sure the file is flushed
+        self.writer.flush()?;
+
+        Ok(())
+    }
 }
