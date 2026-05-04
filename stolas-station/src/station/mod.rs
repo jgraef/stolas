@@ -1,7 +1,6 @@
 pub mod antenna;
 pub mod captures;
 pub mod gps;
-pub mod sensors;
 
 use std::path::Path;
 
