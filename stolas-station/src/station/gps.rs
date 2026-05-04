@@ -62,7 +62,7 @@ pub struct Fix {
     pub longitude: f64,
 
     /// Altitude, height above ellipsoid, in meters. Probably WGS84.
-    pub alt: f64,
+    pub altitude: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -119,14 +119,14 @@ impl Gps {
                     time,
                     lat: Some(latitude),
                     lon: Some(longitude),
-                    alt_hae: Some(alt),
+                    alt_hae: Some(altitude),
                     ..
                 })) => {
                     break Ok(Fix {
                         time: *time,
                         latitude: *latitude,
                         longitude: *longitude,
-                        alt: *alt,
+                        altitude: *altitude,
                     });
                 }
                 Ok(Some(_)) => {
@@ -152,6 +152,7 @@ struct GpsdReceiverTask {
 
     command_receiver: mpsc::Receiver<Command>,
     fix_sender: watch::Sender<FixChannelItem>,
+    has_fix: bool,
 }
 
 impl GpsdReceiverTask {
@@ -184,6 +185,7 @@ impl GpsdReceiverTask {
             writer,
             command_receiver,
             fix_sender,
+            has_fix: false,
         })
     }
 
@@ -217,6 +219,19 @@ impl GpsdReceiverTask {
                 //tracing::debug!(json, ?message, "gpsd message decoded");
                 match message {
                     gpsd_proto::Message::Tpv(tpv) => {
+                        if !self.has_fix
+                            && let gpsd_proto::Tpv {
+                                time,
+                                lat: Some(latitude),
+                                lon: Some(longitude),
+                                alt_hae: Some(altitude),
+                                ..
+                            } = &tpv
+                        {
+                            self.has_fix = true;
+                            tracing::info!(%time, latitude, longitude, altitude, "GPS fix")
+                        }
+
                         //tracing::debug!(?tpv, %json);
                         let _ = self.fix_sender.send_replace(Ok(Some(tpv)));
                     }
