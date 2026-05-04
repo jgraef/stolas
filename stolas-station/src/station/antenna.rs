@@ -134,6 +134,13 @@ impl Antenna {
         result_receiver.await.expect("antenna task disn't reply")
     }
 
+    pub async fn stop(&self) {
+        self.command_sender
+            .send(Command::Stop)
+            .await
+            .expect("command receiver closed");
+    }
+
     pub fn frames(&self) -> Frames {
         let receiver = self
             .weak_frame_sender
@@ -167,6 +174,16 @@ impl Frames {
             }
         }
     }
+}
+
+#[derive(Debug)]
+enum Command {
+    Start {
+        receiver_options: ReceiverOptions,
+        pipeline_options: PipelineOptions,
+        result_sender: oneshot::Sender<Result<(), Error>>,
+    },
+    Stop,
 }
 
 struct AntennaTask {
@@ -279,16 +296,6 @@ impl AntennaTask {
 
         Ok(())
     }
-}
-
-#[derive(Debug)]
-enum Command {
-    Start {
-        receiver_options: ReceiverOptions,
-        pipeline_options: PipelineOptions,
-        result_sender: oneshot::Sender<Result<(), Error>>,
-    },
-    Stop,
 }
 
 #[derive(Clone, Debug)]

@@ -6,7 +6,6 @@ use std::{
     sync::Arc,
 };
 
-use chrono::Utc;
 use color_eyre::eyre::{
     Error,
     bail,
@@ -18,10 +17,7 @@ use stolas_core::{
     AntennaConfig,
     AntennaEvent,
     api::CaptureEntry,
-    file::{
-        FileHeader,
-        FileWriter,
-    },
+    file::FileWriter,
 };
 use tokio::{
     fs::File,
@@ -39,10 +35,7 @@ use tokio_util::sync::{
 
 use crate::{
     database::Database,
-    station::{
-        Station,
-        antenna::Antenna,
-    },
+    station::antenna::Antenna,
 };
 
 #[derive(Clone, Debug)]
@@ -177,6 +170,9 @@ struct CaptureWriter {
 
 impl CaptureWriter {
     fn open(path: impl AsRef<Path>, antenna: &Antenna) -> Result<Self, Error> {
+        // fixme
+        let _ = (path, antenna);
+
         /*let mut config = station.config().clone();
         let frames = station.antenna().frames();
 

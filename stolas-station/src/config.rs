@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
+use crate::station::gps::GpsConfig;
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Config {
     pub station: StationConfig,
@@ -12,12 +14,14 @@ pub struct Config {
     // todo: move to database
     #[serde(default)]
     pub profiles: HashMap<String, Profile>,
+
+    pub gps: Option<GpsConfig>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct StationConfig {
     pub name: String,
-    pub location: GeoLocation,
+    pub location: Location,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -36,8 +40,18 @@ pub struct ReceiverConfig {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Location {
+    Fixed(GeoLocation),
+    Gps,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct GeoLocation {
+    #[serde(alias = "lat")]
     pub latitude: f64,
+
+    #[serde(alias = "lon", alias = "long")]
     pub longitude: f64,
 }
 

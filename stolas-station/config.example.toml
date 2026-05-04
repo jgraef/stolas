@@ -1,16 +1,22 @@
 [station]
-name = "Stolas Test"
-# Station location
+name = "Example"
+
+# Set a fixed station location
 location = { lat = 48.85836924118482, long = 2.2944779905489505 }
 
+# Set location from GPS
+#location = "gps"
 
-#[receiver]
-# Specify SDR by serial.
-# serial = "XXXX"
+[antenna]
+# Configure receiver (SDR dongle)
 #
-# Enable Bias-T
-# bias_tee = true
-
+# If no receiver is specified, the first available RTL-SDR is used
+#
+# Connect to an RTL-SDR with the specified serial
+#receiver = { type = "rtl_sdr", serial = "1234" }
+#
+# Connect to an RTL-SDR through RTL-TCP
+#receiver = { type = "rtl_tcp", address = "localhost:1234" }
 
 # Create a profile
 [profiles.default]
@@ -24,3 +30,12 @@ tuner_gain = 20.0
 window_size = 512
 # Average 50k chunks
 average_size = 50000
+
+# Configure GPS.
+#
+# This can be used as a station location source, but also for synchronizing time.
+# We don't support any GPS device directly, but connect via gpsd.
+#
+#[gps]
+# Specify the gpsd control socket
+#address = "localhost:2947"

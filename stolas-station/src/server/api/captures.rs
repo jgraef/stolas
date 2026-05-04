@@ -66,6 +66,9 @@ pub async fn start_capture(
     State(api): State<Api>,
     Path(file_name): Path<String>,
 ) -> ApiResponse<(), Error> {
+    // fixme
+    let _ = (api, file_name);
+
     /*api.station
     .captures()
     .start(&file_name, api.station.antenna().clone())

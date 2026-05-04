@@ -13,10 +13,8 @@ use axum::{
 use color_eyre::eyre::Error;
 use stolas_core::{
     AntennaConfig,
-    AntennaEvent,
     api::AntennaMessage,
 };
-use tokio::sync::broadcast;
 
 use crate::server::api::Api;
 
@@ -72,11 +70,17 @@ async fn handle_antenna_stream(api: Api, mut websocket: WebSocket) -> Result<(),
 }
 
 pub async fn get_antenna_config(State(api): State<Api>) -> Json<AntennaConfig> {
+    // fixme
+    let _ = api;
+
     //Json(api.station.antenna().config().borrow().clone())
     todo!();
 }
 
 pub async fn set_antenna_config(State(api): State<Api>, Json(config): Json<AntennaConfig>) {
+    // fixme
+    let _ = (api, config);
+
     //api.station.antenna().reconfigure(config).await;
     todo!();
 }

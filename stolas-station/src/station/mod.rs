@@ -1,5 +1,6 @@
 pub mod antenna;
 pub mod captures;
+pub mod gps;
 pub mod sensors;
 
 use std::path::Path;
@@ -19,6 +20,7 @@ use crate::{
             ReceiverOptions,
         },
         captures::Captures,
+        gps::Gps,
     },
 };
 
@@ -26,6 +28,7 @@ use crate::{
 pub struct Station {
     antenna: Antenna,
     captures: Captures,
+    gps: Option<Gps>,
 }
 
 impl Station {
@@ -34,6 +37,13 @@ impl Station {
         database: Database,
         data_path: impl AsRef<Path>,
     ) -> Result<Self, Error> {
+        let gps = if let Some(gps_config) = &config.gps {
+            Some(Gps::new(gps_config).await?)
+        }
+        else {
+            None
+        };
+
         let antenna = Antenna::new(config.antenna.clone())?;
 
         if let Some(default_profile) = &config.antenna.default_profile {
@@ -59,7 +69,11 @@ impl Station {
 
         let captures = Captures::new(database, data_path.as_ref().join("captures"))?;
 
-        Ok(Self { antenna, captures })
+        Ok(Self {
+            antenna,
+            captures,
+            gps,
+        })
     }
 
     pub fn antenna(&self) -> &Antenna {
@@ -68,5 +82,9 @@ impl Station {
 
     pub fn captures(&self) -> &Captures {
         &self.captures
+    }
+
+    pub fn gps(&self) -> Option<&Gps> {
+        self.gps.as_ref()
     }
 }

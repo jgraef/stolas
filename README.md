@@ -74,6 +74,7 @@ TODO
 # Notes
 
 - [Astronomy API][18]
+- For gpsd to work, you might have to edit your package's udev rules (`usr/lib/udev/rules.d/25-gpsd-usb.rules`). My device the NL-302U is commented out because it might conflict with many other serial devices.
 
 [1]: https://3g-aerial.biz/en/online-calculations/antenna-calculations/cantenna-online-calculator
 [2]: https://www.astropeiler.de/en/beobachtungen-der-21-cm-linie-mit-einfachen-mitteln/
